@@ -1,7 +1,7 @@
 *.pyc
 data/
 __pycache__/
-checkpoints_Unet/
+checkpoints/
 *.pth
 *.jpg
 venv/
