@@ -1,0 +1,9 @@
+*.pyc
+data/
+__pycache__/
+checkpoints_Unet/
+*.pth
+*.jpg
+venv/
+.idea/
+wandb/

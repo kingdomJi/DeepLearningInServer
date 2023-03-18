@@ -1,0 +1,2 @@
+kq6的aug_1用了翻转+高斯模糊+box模糊A.Blur(blur_limit=7, p=1)
+aug_2部分用了透视变换+随机放大RandomSizedCrop(min_max_height=(64, 128), height=256, width=256, p=1)
