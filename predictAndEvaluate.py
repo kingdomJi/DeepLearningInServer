@@ -22,7 +22,7 @@ from unet import UNet
 from utils.utils import plot_img_and_mask
 from sklearn.metrics import precision_recall_curve
 import matplotlib.pyplot as plt
-from ResUnet.ResUnet_model import resUnet34
+from MyResnet.ResnetWithASPP_model import resnet34
 
 def predict_img(net,
                 full_img,

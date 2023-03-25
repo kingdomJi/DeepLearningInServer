@@ -7,7 +7,7 @@ except ImportError:
 # __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
 #            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
 #            'wide_resnet50_2', 'wide_resnet101_2']
-__all__ = ['resUnet34']
+__all__ = ['resnet34']
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -116,10 +116,10 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
 
         return out
-class ResUNet(nn.Module):
+class ResNet(nn.Module):
     def __init__(self, n_channels, n_classes,block, layers, bilinear=False,replace_stride_with_dilation=None,norm_layer=None,
                  groups=1, width_per_group=64):
-        super(ResUNet, self).__init__()
+        super(ResNet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
@@ -151,6 +151,10 @@ class ResUNet(nn.Module):
                                        dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
+
+
+
+        #######
 
         factor = 2 if bilinear else 1
         # self.down4 = Down(512, 1024 // factor)
@@ -204,7 +208,7 @@ class ResUNet(nn.Module):
         x2 = self.layer2(x1)#输入64，输出通道=128,图片长宽减半
         x3 = self.layer3(x2)#128，输出通道=256,图片长宽减半
         x4 = self.layer4(x3)#256，输出通道=512,图片长宽减半
-
+        # print(x4.size())#[batchsize,512,32(h),32(w)]
 ###############################下面是原U-net网络模型
         # x5 = self.down4(x4)  # 512->1024,图片长宽减半，实际操作是maxpool+两次卷积
         # x = self.up1(x5)#一次转置卷积（size变大两倍），在融合之后（torch.cat），对结果进行两次普通卷积（降维）
@@ -214,6 +218,7 @@ class ResUNet(nn.Module):
         # x = self.up3(x, x2)#256->64
         # x = self.up4(x, x1)#64
         #############Jiang
+
         x = self.up2(x4)  # 传入第一次上采样结果加倒数第三次下采样结果（对称），512和256维度
         x = self.up3(x)#256->64
         x = self.up4(x)#64
@@ -345,8 +350,8 @@ class Up_J(nn.Module):#Jiang,改动了U-net的UP，直接上采样，去掉融�
 #         return self._forward_impl(x)
 
 
-def _resUnet(arch, n_channels, n_classes,block, layers, pretrained, progress, **kwargs):
-    model = ResUNet(n_channels, n_classes,block, layers, **kwargs)#在这里输入使用的resnet网络
+def _resnet(arch, n_channels, n_classes,block, layers, pretrained, progress, **kwargs):
+    model = ResNet(n_channels, n_classes,block, layers, **kwargs)#在这里输入使用的resnet网络
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
@@ -365,7 +370,7 @@ def _resUnet(arch, n_channels, n_classes,block, layers, pretrained, progress, **
 #                    **kwargs)#这里传入block=BasicBlock,layers=[2,2,2,2],
 
 #这里是真正被外界调用的接口
-def resUnet34(n_channels, n_classes,pretrained=False, progress=True, **kwargs):#常用34，50以下比较常用，100以上的太大了
+def resnet34(n_channels, n_classes,pretrained=False, progress=True, **kwargs):#常用34，50以下比较常用，100以上的太大了
     r"""ResNet-34 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
 
@@ -373,7 +378,7 @@ def resUnet34(n_channels, n_classes,pretrained=False, progress=True, **kwargs):#
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resUnet('resnet34',n_channels, n_classes, BasicBlock, [3, 4, 6, 3], pretrained, progress,
+    return _resnet('resnet34',n_channels, n_classes, BasicBlock, [3, 4, 6, 3], pretrained, progress,
                    **kwargs)
 
 

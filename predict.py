@@ -21,8 +21,8 @@ from unet import UNet
 from utils.utils import plot_img_and_mask
 from sklearn.metrics import precision_recall_curve
 import matplotlib.pyplot as plt
-from ResUnet.ResUnet_model import resUnet34
-
+from MyResnet.ResnetWithASPP_model import resnet34
+from MyResnet.ResNet_baseLine import resnet34
 def predict_img(net,
                 full_img,
                 device,
@@ -37,6 +37,7 @@ def predict_img(net,
         #####################Jiang
         # output=flip_pred(net,img)#旋转加原图，三合一
         ######################
+        print(img.shape)
         output = net(img)#原
         # print(output.shape)#(classes=2时,size=[1, 2, 224, 224]),值为[-1.9345, -2.8159, -2.9056,  ..., -3.5215, -2.9572, -2.0101],[ 1.8863,  2.9546,  3.1037,  ...,  4.0547,  3.3417,  2.5655]格式
         # output的格式是classes层的概率图，概率尚且未归一化
@@ -67,7 +68,7 @@ def predict_img(net,
         #classes维度下，只有一个为1，其他全为0，对应多分类中每个像素只对应一个类别
 def get_args():
     parser = argparse.ArgumentParser(description='Predict masks from input images')
-    parser.add_argument('--model', '-m', default='./checkpoints/Resnet34/Chen_Aug5_2_Seg_e100_increaseL2/checkpoint_epoch8.pth', metavar='FILE',
+    parser.add_argument('--model', '-m', default='./checkpoints/Resnet34/Public_L2=1e-6bias=0/checkpoint_epoch34.pth', metavar='FILE',
     #parser.add_argument('--model', '-m',default='./checkpoints_UNet_Chen_Unenhance_e40/checkpoint_epoch40.pth',metavar='FILE',
                         help='Specify the file in which the model is stored')
     parser.add_argument('--input', '-i', metavar='INPUT', nargs='+', help='Filenames of input images', required=True)
@@ -81,8 +82,10 @@ def get_args():
                         help='Scale factor for the input images')
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')
     # parser.add_argument('--pr_curve','-pr',metavar='INPUT',nargs='+',help='precision_recall_curve')
-    parser.add_argument('--is_whole_img','-iwi', action='store_true',default=False, help='whether the image is a complete one')
+    parser.add_argument('--crop1024','-c1024', action='store_true',default=False, help='crop whole img to size1024 to prediction')
+
     parser.add_argument('--pr', '-pr', action='store_true', default=False,help='save PR curve')
+
     #action='store_true',在调用脚本时不调用该参，则默认为False,调用时则默认为True
     """
     'input'and'output'都可以是文件路径列表，input列表可以从.txt获取，
@@ -168,6 +171,35 @@ def flip_pred(net,image):#切入predict_img中,数据增强用
     return pred
 #################################
 
+def crop_1024(img,net):
+    imgs = CropAndConnect.Crop_1024(img)  # 返回一个切割完的五维图片集数组
+    # print(imgs.shape)
+    imgs_h = imgs.shape[0]
+    imgs_w = imgs.shape[1]
+    imgs_hsize = imgs.shape[2]
+    imgs_wsize = imgs.shape[3]
+    #######################这里可以用循环把mask存在一个列表里
+    # 传入Connect函数的masks.size=(块行数,块列数,classes,高，宽)
+    classes = net.n_classes  # 这个地方要跟网络的classes保持一致
+    masks = np.zeros((imgs_h, imgs_w, classes, imgs_hsize, imgs_wsize))  # masks是五维数组
+    for n in range(imgs.shape[0]):
+        for m in range(imgs.shape[1]):
+            mask, probability_mask = predict_img(net=net,
+                                                 full_img=Image.fromarray(imgs[n][m]),  # 这里还原成img的输入格式
+                                                 scale_factor=args.scale,
+                                                 out_threshold=args.mask_threshold,
+                                                 device=device)
+            # print(mask.shape)#（2，256，256）
+            # print(np.unique(mask))#0或1
+            masks[n][m] = mask
+
+    # print('masks.shape'+masks.shape)
+    ###################这里执行将mask拼接起来的Connect
+    new_mask = CropAndConnect.Connect_1024(masks=masks, classes=classes)
+    return new_mask
+
+
+
 if __name__ == '__main__':
     args = get_args()
     PR = args.pr
@@ -182,15 +214,16 @@ if __name__ == '__main__':
         in_files = args.input#原版，返回一个字符串列表，列表元素个数取决于是输入的元素个数，原作者大概想当输入为多个图片时，
             # 命令行输入的input参数为一个图片路径列表。比如用.txt保存所有输入图片的绝对路径，再用命令行调用该txt作为输入路径参数
 
-
+    crop_1024=args.crop1024
     out_files = get_output_filenames(args)#原版，这里返回列表或单个值，取决于输入情况
     # out_files=get_output_filenames_J(in_files)#Jiang,当输入是文件夹时，调用该行
     # print(out_files)
 
     # net = UNet(n_channels=3, n_classes=2, bilinear=args.bilinear)
     # net=segNet_model.SegNet(n_channels=3, n_classes=2)#选择网络
-    net = resUnet34(n_channels=3, n_classes=2, pretrained=False)
-    # net=DeepCrack(n_classes=1)
+    net=resnet34(n_channels=3, n_classes=2, pretrained=False)#baseLine
+    # net = resUnet34(n_channels=3, n_classes=2, pretrained=False)
+    # net=DeepCrack(n_channels=3,n_classes=2)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')  # 调试错误时调用以查找错误来源
@@ -206,10 +239,10 @@ if __name__ == '__main__':
         img = Image.open(filename).convert('RGB')#原,打开待预测图像,保持以RGB模式打开，防止四通道图片传入
         img = np.asarray(img)#这里是后面加的，把CropAndConnect.Crop里的开头转np拿到这里了
         # print(img.size)#(高，宽)
-        if img.shape[0]>2000 or img.shape[1]>2000:#当输入很大一幅图时调用这个地方，切割预测
+        if img.shape[0]>2000 and img.shape[1]>2000 and crop_1024==False:#当输入很大一幅图时调用这个地方，切割预测
             #######################这里执行Crop处理img
             imgs = CropAndConnect.Crop(img)  # 返回一个切割完的五维图片集数组
-            print(imgs.shape)
+            print(imgs.shape)#()
             imgs_h = imgs.shape[0]
             imgs_w = imgs.shape[1]
             imgs_hsize = imgs.shape[2]
@@ -233,6 +266,32 @@ if __name__ == '__main__':
             ###################这里执行将mask拼接起来的Connect
             new_mask = CropAndConnect.Connect(masks=masks, classes=classes)
 
+
+        elif(crop_1024==True):
+            imgs = CropAndConnect.Crop_1024(img)  # 返回一个切割完的五维图片集数组
+            # print(imgs.shape)#(,,1024,1024,3)
+            imgs_h = imgs.shape[0]
+            imgs_w = imgs.shape[1]
+            imgs_hsize = imgs.shape[2]
+            imgs_wsize = imgs.shape[3]
+            #######################这里可以用循环把mask存在一个列表里
+            # 传入Connect函数的masks.size=(块行数,块列数,classes,高，宽)
+            classes = net.n_classes  # 这个地方要跟网络的classes保持一致
+            masks = np.zeros((imgs_h, imgs_w, classes, imgs_hsize, imgs_wsize))  # masks是五维数组
+            for n in range(imgs.shape[0]):
+                for m in range(imgs.shape[1]):
+                    mask, probability_mask = predict_img(net=net,
+                                                         full_img=Image.fromarray(imgs[n][m]),  # 这里还原成img的输入格式
+                                                         scale_factor=args.scale,
+                                                         out_threshold=args.mask_threshold,
+                                                         device=device)
+                    # print(mask.shape)#（2，256，256）
+                    # print(np.unique(mask))#0或1
+                    masks[n][m] = mask
+
+            # print('masks.shape'+masks.shape)
+            ###################这里执行将mask拼接起来的Connect
+            new_mask = CropAndConnect.Connect_1024(masks=masks, classes=classes)
         else:#当输入的单张图片并不大时调用原版
             new_mask, probability_mask= predict_img(net=net,
                                full_img=Image.fromarray(img),  # 这里还原成img的输入格式

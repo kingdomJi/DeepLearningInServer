@@ -17,19 +17,19 @@ from DeepCrack.codes.model.deepcrack import DeepCrack
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 from resnet.models import networks
-from ResUnet.ResUnet_model import resUnet34
-from evaluate import evaluate
+from MyResnet.ResnetWithASPP_model import resnet34
+from evaluate import evaluate,evaluate_J
 from unet import UNet
 
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_dom_aug\\')
-dir_img = Path(r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug5_2_seg\kq6_dom_aug\\')
+dir_img = Path(r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_dom\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_label_seg_aug\\')
-dir_mask = Path(r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug5_2_seg\kq6_label_seg_aug\\')
+dir_mask = Path(r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_label_seg\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
-dir_checkpoint = Path('checkpoints/Resnet34/Transfer_freezeDecoder[1-3]/Public_e100_TransferToChen_Aug5_2_e100/')#这里基于使用的网络
+dir_checkpoint = Path('checkpoints/Resnet34/Transfer_freezeDecoder[1-3]/Public_e100_TransferToChen_increaseL2=1e-5/')#这里基于使用的网络
 # dir_checkpoint = Path('checkpoints/U-net/data_LHS_e100_scale=1/')#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
@@ -93,13 +93,11 @@ def train_net(net,
     params_conv = filter(lambda p: p.requires_grad, net.parameters())#筛选出没被冻结的层
     ######################
     # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
-    optimizer = optim.RMSprop(params_conv, lr=learning_rate, weight_decay=1e-4, momentum=0.9)#Jiang
-
-
+    optimizer = optim.RMSprop(params_conv, lr=learning_rate, weight_decay=1e-5, momentum=0.9)#Jiang
     # optimizer=optim.Adam(net.parameters(),lr=learning_rate)#这个不能乱用，可能会优化不了模型
-    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)  # goal: maximize Dice score
+    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,'min',factor=0.1, patience=5)
     # 学习率调整策略，监视loss的，patience个epoch的loss没降，他就会降低学习率,ReduceLROnPlateau可能不适合diceloss这种容易震荡的loss函数收敛
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.5) #学习速率调整策略,指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5
+    scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.9) #学习速率调整策略,指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5
 
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
 
@@ -173,13 +171,18 @@ def train_net(net,
                             histograms['Weights/' + tag] = wandb.Histogram(value.data.cpu())
                             histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
-                        val_score = evaluate(net, val_loader, device)
-                        scheduler.step(val_score)
+                        #原版
+                        # val_score = evaluate(net, val_loader, device)
+                        # scheduler.step(val_score)
+                        ################Jiang
+                        val_loss = evaluate_J(net, val_loader, device)
+                        scheduler.step(val_loss)  # 监测(val_loss)，当val_loss几个epoch后不再降低，则降低学习率
+                        ##########
 
-                        logging.info('Validation Dice score: {}'.format(val_score))
+                        logging.info('Validation loss: {}'.format(val_loss))
                         experiment.log({
                             'learning rate': optimizer.param_groups[0]['lr'],
-                            'validation Dice': val_score,
+                            'validation loss': val_loss,
                             'images': wandb.Image(images[0].cpu()),
                             'masks': {
                                 'true': wandb.Image(true_masks[0].float().cpu()),
