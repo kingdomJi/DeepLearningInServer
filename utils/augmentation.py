@@ -244,7 +244,7 @@ def resize(path_img,path_save,mask=False,size=(256,256)):
         for each in img_namelist:
             img=Image.open(path_img+'/'+each)
             img_resize=img.resize(size)
-            img_savePath=path_save+'/'+os.path.splitext(each)[0]+'.png'
+            img_savePath=path_save+'/'+each#os.path.splitext(each)[0]+'.png'
             img_resize.save(img_savePath)
     if mask==True:
         for each in img_namelist:
@@ -279,32 +279,35 @@ if __name__=='__main__':
     # trans=augmentation()
     # print(aug_test(image_path,save_path,trans))
     ########################resize一个目录
-    # path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug5_2_seg\kq6_label_seg_aug'
-    # path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug5_2_size512seg\kq6_label_seg_aug'
-    # resize(path_img, path_save, mask=False, size=(512, 512))
+    path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask'
+    path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask'
+    resize(path_img, path_save, mask=True, size=(256, 256))
     #########单张resize
-    # path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen__Resnet34_IncreaseL2=1e-5_aug5_2_e87\000000292.png'
-    # path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen__Resnet34_IncreaseL2=1e-5_aug5_2_e87\000000292_up1024.png'
+    # path_img = r'..\data\trainbyChen__Resnet34_IncreaseL2=1e-5_aug5_2_e87\000000292.png'
+    # path_save = r'..\data\trainbyChen__Resnet34_IncreaseL2=1e-5_aug5_2_e87\000000292_up1024.png'
+    # path_img = r'C:\Users\jiangshan\Desktop\新月耶.jpg'
+    # path_save = r'C:\Users\jiangshan\Desktop\XYY448.jpg'
     # img = Image.open(path_img)
-    # # print(np.size(img, 0))#h
-    # # print(np.size(img, 1))#w
+    # print(np.size(img, 0))#h
+    # print(np.size(img, 1))#w
     # img_resize = img.resize(size=((int(np.size(img, 1)*4)),int(np.size(img, 0)*4)))#先w后h
+    # img_resize = img.resize(size=(448, 448))  # 先w后h
     # img_resize.save(path_save)
     # ######################################
     # 删除某一次的增强数据集
     # delete_aug(img_list,mask_seg_list,save_path_source,save_path_label_seg,save_path_label_line,3)
 
     #####对Mask_seg进行增强
-    open_path_souce=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_dom\\'
-    open_path_label_seg=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_label_seg\\'
-    # open_path_label_line=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_label_line\\'
-    save_path_source = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug7_seg\kq6_dom_aug\\'
-    save_path_label_seg = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug7_seg\kq6_label_seg_aug\\'
-    # # save_path_label_line = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\kq6_label_line_aug\\'
-    # suffix='aug_4'
-    # myAug=Aug(open_path_souce, open_path_label_seg, save_path_source, save_path_label_seg, suffix)
-    # myAug.aug_seg()
-    mask_24Transto8bit(save_path_label_seg)#RGB转灰度图
+    # open_path_souce=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_dom\\'
+    # open_path_label_seg=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_label_seg\\'
+    # # open_path_label_line=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_label_line\\'
+    # save_path_source = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug7_seg\kq6_dom_aug\\'
+    # save_path_label_seg = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\aug7_seg\kq6_label_seg_aug\\'
+    # # # save_path_label_line = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\kq6_label_line_aug\\'
+    # # suffix='aug_4'
+    # # myAug=Aug(open_path_souce, open_path_label_seg, save_path_source, save_path_label_seg, suffix)
+    # # myAug.aug_seg()
+    # mask_24Transto8bit(save_path_label_seg)#RGB转灰度图
 
 #####复制源文件到指定目录
     # Copy_source(open_path_souce, open_path_label_seg, save_path_source, save_path_label_seg)

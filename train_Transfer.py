@@ -17,7 +17,8 @@ from DeepCrack.codes.model.deepcrack import DeepCrack
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 from resnet.models import networks
-from MyResnet.ResnetWithASPP_model import resnet34
+from MyResnet.ResNet_baseLine import resnet34
+# from MyResnet.ResnetWithASPP_model import resnet34
 from evaluate import evaluate,evaluate_J
 from unet import UNet
 
@@ -93,12 +94,36 @@ def train_net(net,
     params_conv = filter(lambda p: p.requires_grad, net.parameters())#筛选出没被冻结的层
     ######################
     # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
-    optimizer = optim.RMSprop(params_conv, lr=learning_rate, weight_decay=1e-5, momentum=0.9)#Jiang
+    # optimizer = optim.RMSprop(params_conv, lr=learning_rate, weight_decay=1e-5, momentum=0.9)#Jiang
+    #######Jiang
+    for name, value in net.named_parameters():  # 针对ResNet
+        matchObj = re.match(r'.*bias', name)  # 设置
+        if matchObj:
+            value.requires_grad = False  # requires_grad
+
+    params_bias = filter(lambda p: p.requires_grad == False, net.parameters())  # 筛选bias
+    params_others = filter(lambda p: p.requires_grad, net.parameters())  # 筛选其他
+    params_bias_copy = []  # 存bias
+    params_others_copy = []
+    for value in params_bias:
+        params_bias_copy.append(value)
+    for value in params_others:
+        params_others_copy.append(value)
+    for name, value in net.named_parameters():  # 针对ResNet
+        matchObj = re.match(r'.*bias', name)  # 设置
+        if matchObj:
+            value.requires_grad = True  # 改回来
+    ################################
+    optimizer = optim.RMSprop([
+        {'params': params_others_copy, 'weight_decay': 1e-6},
+        {'params': params_bias_copy, 'weight_decay': 0}
+    ], lr=learning_rate, momentum=0.9)
     # optimizer=optim.Adam(net.parameters(),lr=learning_rate)#这个不能乱用，可能会优化不了模型
     # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,'min',factor=0.1, patience=5)
     # 学习率调整策略，监视loss的，patience个epoch的loss没降，他就会降低学习率,ReduceLROnPlateau可能不适合diceloss这种容易震荡的loss函数收敛
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.9) #学习速率调整策略,指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5
-
+    # scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.9) #学习速率调整策略,指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, eta_min=0, last_epoch=- 1,
+                                                     verbose=False)  # 余弦退火
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
 
     criterion = nn.CrossEntropyLoss()#应用于输入classes》=2的情况
@@ -250,7 +275,7 @@ if __name__ == '__main__':
     # net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)#通道数：PGB、每个像素要获取的概率、双线性
     # net = segNet_model.SegNet(n_channels=3, n_classes=args.classes)
     # net= networks.resnet34(pretrained=False)#初始化网络
-    net=resUnet34(n_channels=3,n_classes=2,pretrained=False)
+    net=resnet34(n_channels=3,n_classes=2,pretrained=False)
     # net=DeepCrack(num_classes=args.classes)##默认input_channnel为3
 
     logging.info(f'Network:\n'

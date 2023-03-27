@@ -5,8 +5,6 @@ from pathlib import Path
 import os
 import re
 import numpy as np
-
-from MyResnet.ResNet_baseLine import resnet34
 from SegNet import segNet_model
 import torch
 import torch.nn as nn
@@ -23,28 +21,31 @@ from MyResnet.ResNet_baseLine import resnet34
 # from MyResnet.ResnetWithASPP_model import resnet34
 from evaluate import evaluate,evaluate_J
 from unet import UNet
-
+"""
+这里想在断点之后继续训练需要和断开前的训练参数保持一致（优化器和loss等）
+"""
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_dom_aug\\')
-dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
+dir_img = Path(r'E:\jiangshan\U-net\Pytorch-UNet\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_label_seg_aug\\')
-dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
+dir_mask = Path(r'E:\jiangshan\U-net\Pytorch-UNet\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-dir_checkpoint = Path('checkpoints/Resnet34/Neural-Transfer_L2=1e-6bias=0/')#这里基于使用的网络
-# dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
+dir_checkpoint = Path('checkpoints/Resnet34/Public_L2=1e-6bias=0/')
 
 def train_net(net,
               device,
               epochs: int = 5,#时期
+              start_epoch=0,
               batch_size: int = 8,
               learning_rate: float = 1e-4,#学习效率
               val_percent: float = 0.1,#验证集占总图片的比例
               save_checkpoint: bool = True,#保存检查点
               img_scale: float = 1,#图像尺度
-              amp: bool = False):
+              amp: bool = False,
+              ):
     # 1. Create dataset
     try:
         dataset = BasicDataset(dir_img, dir_mask, img_scale)#读取数据集
@@ -61,15 +62,13 @@ def train_net(net,
     loader_args = dict(batch_size=batch_size, num_workers=2, pin_memory=False)
     #加载器参数是字典形式，包含栅格尺寸、工作者数（关系到内存）、是否设置锁页内存
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
-    #训练集加载器，传入训练集，打乱数据，**loader_args指将字典作为参数传入，没有传入的参数按照源代码构造器中的默认值算。
+    #训练集加载器，传入训练集，打乱数据为真，**loader_args指将字典作为参数传入，没有传入的参数按照源代码构造器中的默认值算。
     val_loader = DataLoader(val_set, shuffle=False, drop_last=True, **loader_args)
     #验证集加载器，传入验证集，不打乱数据，。。。
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
-    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='Neural-Transfer_L2=1e-6bias=0训练')#每次训练更改
-    # experiment = wandb.init(project='DeepCrack', resume='allow', anonymous='must',
-    #                         name='Chen_Aug5_2_Seg_e100_increaseL2=1e-5训练')
-    # experiment = wandb.init(project='Unet', resume='allow', anonymous='must', name='Chen_Aug6_Seg_e100训练')
+    # experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='crack_segmentation_dataset_e100_c=2训练')#每次训练更改
+    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must', name='Public_L2=1e-6bias=0_continue训练')
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
                                   amp=amp))
@@ -88,7 +87,9 @@ def train_net(net,
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
     #设定优化器、损失函数、学习速率调度器、AMP的损耗缩放
-    #######Jiang
+
+    # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
+    ##############Jiang,提取bias偏置
     for name, value in net.named_parameters():  # 针对ResNet
         matchObj = re.match(r'.*bias', name)  # 设置
         if matchObj:
@@ -96,7 +97,7 @@ def train_net(net,
 
     params_bias = filter(lambda p: p.requires_grad == False, net.parameters())  # 筛选bias
     params_others = filter(lambda p: p.requires_grad, net.parameters())  # 筛选其他
-    params_bias_copy = []#存bias
+    params_bias_copy = []  # 存bias
     params_others_copy = []
     for value in params_bias:
         params_bias_copy.append(value)
@@ -105,39 +106,25 @@ def train_net(net,
     for name, value in net.named_parameters():  # 针对ResNet
         matchObj = re.match(r'.*bias', name)  # 设置
         if matchObj:
-            value.requires_grad = True  #改回来
-        # print(name + ' ', value.requires_grad)
+            value.requires_grad = True  #改回来原来参数
     ################################
-
-    # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)
     optimizer = optim.RMSprop([
-        {'params':params_others_copy , 'weight_decay': 1e-6},
+        {'params': params_others_copy, 'weight_decay': 1e-6},
         {'params': params_bias_copy, 'weight_decay': 0}
     ], lr=learning_rate, momentum=0.9)
-    # optimizer = optim.SGD(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)#不能乱用，容易不收敛
-    # optimizer = optim.SGD([
-    #     {'params': r'.*weight', 'weight_decay': 1e-4},
-    #     {'params': r'.*bias', 'weight_decay': 0}
-    # ], lr=learning_rate, weight_decay=1e-4, momentum=0.9)
-
-    # weight_decay 权重衰减项可以控制L2正则化的参数，遏制模型的过拟合，衰减系数越大，越不容易过拟合，这里从1e-8改到1e-5或1e-4
-    # optimizer=optim.Adam(net.parameters(),lr=learning_rate)#这个不能乱用，可能会优化不了模型，optim.Adam：RMSprop结合Momentum
-    # optimizer = torch.optim.SGD([{'params': weight_p, 'weight_decay':1e-5}, {'params': bias_p, 'weight_decay':0}], lr=learning_rate, momentum=0.9)
-    # optim.SGD：随机梯度下降法，大部分都会使用SGD
-    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',factor=0.1, patience=5)
-    # 原版：goal: maximize Dice score 我改：loss的 min值不再下降时降低学习率
+    # optimizer=optim.Adam(net.parameters(),lr=learning_rate)#这个不能乱用，可能会优化不了模型
+    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,'min',factor=0.1, patience=5)
     # 学习率调整策略，监视loss的，patience个epoch的loss没降，他就会降低学习率,ReduceLROnPlateau可能不适合diceloss这种容易震荡的loss函数收敛
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
-    #T_max决定总的训练epoch内学习率周期循环多少次
-    # scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.8) #指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5,真不好乱用啊
-
+    # scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.9) #学习速率调整策略,指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, eta_min=0, last_epoch=- 1,
+                                                     verbose=False)  # 余弦退火
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
 
     criterion = nn.CrossEntropyLoss()#应用于输入classes》=2的情况
     global_step = 0
 
     # 5. Begin training
-    for epoch in range(1, epochs+1):
+    for epoch in range(start_epoch, epochs+1):
         net.train()
         epoch_loss = 0
         with tqdm(total=n_train, desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
@@ -163,7 +150,7 @@ def train_net(net,
                     if net.n_classes==1:#当n_classes=1
                          # print(torch.sigmoid(masks_pred).shape)#[batch, classes, 高, 宽]
                          # print(true_masks.shape)#[batch, 高, 宽]
-                         criterion=nn.BCELoss()#针对二分类的交叉熵BCE
+                         criterion=nn.BCELoss()#针对二分类的交叉熵
                          loss = criterion(np.squeeze(torch.sigmoid(masks_pred)).float(), true_masks.float()) + \
                                dice_loss(np.squeeze(torch.sigmoid(masks_pred)).float(),  #n_classes=1分类（二分类）归一,将值收敛到[0,1]
                                            true_masks.float(),
@@ -176,11 +163,10 @@ def train_net(net,
                                            F.one_hot(true_masks, net.n_classes).permute(0, 3, 1, 2).float(),
                                            multiclass=True)#把true_masks变成4维，增加n_classes维度和masks_pred对应
                     ########################
-                optimizer.zero_grad(set_to_none=True)#梯度清零
-                grad_scaler.scale(loss).backward()#反向传播
-                # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
-                grad_scaler.step(optimizer)#
-                grad_scaler.update()#更新
+                optimizer.zero_grad(set_to_none=True)
+                grad_scaler.scale(loss).backward()
+                grad_scaler.step(optimizer)
+                grad_scaler.update()
 
                 pbar.update(images.shape[0])
                 global_step += 1
@@ -202,13 +188,13 @@ def train_net(net,
                             histograms['Weights/' + tag] = wandb.Histogram(value.data.cpu())
                             histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
+                        #原版
+                        # val_score = evaluate(net, val_loader, device)
+                        # scheduler.step(val_score)
                         ################Jiang
-                        #val_score=evaluate(net, val_loader, device)#原版，evaluate返回验证集上的均值dice_score
-                        # scheduler.step(val_score)#原版
                         val_loss = evaluate_J(net, val_loader, device)
-                        scheduler.step()#监测(val_loss)，当val_loss几个epoch后不再降低，则降低学习率,针对optim.lr_scheduler.ReduceLROnPlateau
-                        #只有用了optimizer.step()，模型才会更新，而scheduler.step()是对lr进行调整
-                        #############
+                        scheduler.step()  # 监测(val_loss)，当val_loss几个epoch后不再降低，则降低学习率
+                        ##########
 
                         logging.info('Validation loss: {}'.format(val_loss))
                         experiment.log({
@@ -231,26 +217,28 @@ def train_net(net,
 
 
 def get_args():#传入参数
-    #1.创建解析器，ArgumentParser 对象包含将命令行解析成 Python 数据类型所需的全部信息
-    parser = argparse.ArgumentParser(description='Train the Resnet on images and target masks')
+    """1.创建解析器，ArgumentParser 对象包含将命令行解析成 Python 数据类型所需的全部信息"""
+    parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
     #description ：在参数帮助文档之前显示的文本
-    #2，添加参数，给一个 ArgumentParser 添加程序参数信息是通过调用 add_argument() 方法完成
-    # 开头的：name or flags - 一个命名或者一个选项字符串的列表，例如foo或 - f, --foo。
-    # action - 当参数在命令行中出现时使用的动作基本类型。
-    # nargs - 命令行参数应当消耗的数目。
-    # const - 被一些action和nargs选择所需求的常数。
-    # default - 当参数未在命令行中出现时使用的值。
-    # type - 命令行参数应当被转换成的类型。
-    # choices - 可用的参数的容器。
-    # required - 此命令行选项是否可省略 （仅选项可用）。
-    # help - 一个此选项作用的简单描述。
-    # metavar - 在使用方法消息中使用的参数值示例。
-    # dest - 被添加到parse_args()所返回对象上的属性名。
+    """2，添加参数，给一个 ArgumentParser 添加程序参数信息是通过调用 add_argument() 方法完成
+    开头的：name or flags - 一个命名或者一个选项字符串的列表，例如foo或 - f, --foo。
+    action - 当参数在命令行中出现时使用的动作基本类型。
+    nargs - 命令行参数应当消耗的数目。
+    const - 被一些action和nargs选择所需求的常数。
+    default - 当参数未在命令行中出现时使用的值。
+    type - 命令行参数应当被转换成的类型。
+    choices - 可用的参数的容器。
+    required - 此命令行选项是否可省略 （仅选项可用）。
+    help - 一个此选项作用的简单描述。
+    metavar - 在使用方法消息中使用的参数值示例。
+    dest - 被添加到parse_args()所返回对象上的属性名。"""
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=100, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=4, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4,
                         help='Learning rate', dest='lr')
-    parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')#加载已经训练过的模型
+    # parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
+    ## 这里加载已经训练过的模型
+    parser.add_argument('--load', '-f', type=str, default='./checkpoints/Resnet34/Public_L2=1e-6bias=0/checkpoint_epoch44.pth')#Jiang
     #例如./checkpoints_SegNet_crack/checkpoint_epoch20.pth
     parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
@@ -278,9 +266,9 @@ if __name__ == '__main__':
 
     # net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)#通道数：PGB、每个像素要获取的概率、双线性
     # net = segNet_model.SegNet(n_channels=3, n_classes=args.classes)
-    # net=resUnet34(n_channels=3,n_classes=2,pretrained=False)
-    net = resnet34(n_channels=3, n_classes=2, pretrained=False)  # baseLine
-    # net=DeepCrack(n_channels=3,n_classes=args.classes)##默认input_channnel为3
+    # net= networks.resnet34(pretrained=False)#初始化网络
+    net=resnet34(n_channels=3,n_classes=2,pretrained=False)
+    # net=DeepCrack(num_classes=args.classes)##默认input_channnel为3
 
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
@@ -288,19 +276,29 @@ if __name__ == '__main__':
                  # f'\t{"Bilinear" if net.bilinear else "Transposed conv"} upscaling')##U-net独有
 
     if args.load:#加载预训练模型时
+        start_epoch = 45  # 设置开始训练时的第一个epoch
+
         net.load_state_dict(torch.load(args.load, map_location=device))
         logging.info(f'Model loaded from {args.load}')
-
+        #############Jiang
+        # for name, value in net.named_parameters():#冻结部分层
+        #     matchObj = re.match('inc|down', name)  # 设置冻结编码层参数
+        #     # print(value.requires_grad)
+        #     if matchObj:
+        #         value.requires_grad = False  ## requires_grad 为 true 则进行更新，为 False 时权重和偏置不进行更新。
+        ####################
     net.to(device=device)
     try:
         train_net(net=net,#正式训练网络，传入参数，net选用U-net或其他,部分参数从args中获取
                   epochs=args.epochs,
+                  start_epoch=start_epoch,
                   batch_size=args.batch_size,
                   learning_rate=args.lr,
                   device=device,
                   img_scale=args.scale,
                   val_percent=args.val / 100,
-                  amp=args.amp)
+                  amp=args.amp,
+                  )
 
     except KeyboardInterrupt:
         torch.save(net.state_dict(), 'INTERRUPTED.pth')#只保存参数，没保持整个模型
