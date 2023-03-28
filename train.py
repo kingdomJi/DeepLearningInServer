@@ -25,15 +25,15 @@ from evaluate import evaluate,evaluate_J
 from unet import UNet
 
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_dom_aug\\')
-dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
+dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug8_seg\TransPublicAndkq6_img\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_label_seg_aug\\')
-dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
+dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug8_seg\TransPublicAndkq6_seg\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-dir_checkpoint = Path('checkpoints/Resnet34/Neural-Transfer_L2=1e-6bias=0/')#这里基于使用的网络
+dir_checkpoint = Path('checkpoints/Resnet34/NeuralTransferAndkq6_L2=1e-8bias=0/')#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
 def train_net(net,
@@ -66,7 +66,7 @@ def train_net(net,
     #验证集加载器，传入验证集，不打乱数据，。。。
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
-    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='Neural-Transfer_L2=1e-6bias=0训练')#每次训练更改
+    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='NeuralTransferAndkq6_L2=1e-8bias=0训练')#每次训练更改
     # experiment = wandb.init(project='DeepCrack', resume='allow', anonymous='must',
     #                         name='Chen_Aug5_2_Seg_e100_increaseL2=1e-5训练')
     # experiment = wandb.init(project='Unet', resume='allow', anonymous='must', name='Chen_Aug6_Seg_e100训练')
@@ -111,7 +111,7 @@ def train_net(net,
 
     # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)
     optimizer = optim.RMSprop([
-        {'params':params_others_copy , 'weight_decay': 1e-6},
+        {'params':params_others_copy , 'weight_decay': 1e-8},
         {'params': params_bias_copy, 'weight_decay': 0}
     ], lr=learning_rate, momentum=0.9)
     # optimizer = optim.SGD(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)#不能乱用，容易不收敛
@@ -127,8 +127,8 @@ def train_net(net,
     # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',factor=0.1, patience=5)
     # 原版：goal: maximize Dice score 我改：loss的 min值不再下降时降低学习率
     # 学习率调整策略，监视loss的，patience个epoch的loss没降，他就会降低学习率,ReduceLROnPlateau可能不适合diceloss这种容易震荡的loss函数收敛
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
-    #T_max决定总的训练epoch内学习率周期循环多少次
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
+    #T_max决定总的训练epoch内学习率周期循环多少次,t_max*2/10=多少epoch一个周期
     # scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.8) #指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5,真不好乱用啊
 
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)

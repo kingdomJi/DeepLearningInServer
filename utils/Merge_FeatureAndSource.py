@@ -51,8 +51,8 @@ def Crop_sourceMap_LHS(img):#这里把原图裁成和被输出的预测图一样
 ######################Jiang
 if __name__=='__main__':
     ####王家山path
-    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-6ByJiang_e28\WJS_e28.png"
-    save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-6ByJiang_e28\WJS_e28_merge.png"
+    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyPublic-transfer_resnet34L2=1e-6\WJS_e44.png"
+    save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyPublic-transfer_resnet34L2=1e-6\WJS_e44_merge.png"
     # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4bias=0_aug4ByJiang\LHS_e65.png"
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4bias=0_aug4ByJiang\LHS_e65_merge.png"
     # raw_dir = ".././data/Cut_LHS.png"

@@ -168,7 +168,7 @@ def get_input_optimizer(input_img):
 
 
 def run_style_transfer(cnn, normalization_mean, normalization_std,
-                       content_img, style_img, input_img, num_steps=300,
+                       content_img, style_img, input_img, num_steps=300,#num_steps决定计算的次数，原始的300
                        style_weight=1000000, content_weight=1):
     """Run the style transfer."""
     print('Building the style transfer model..')
@@ -222,7 +222,7 @@ if __name__=='__main__':
     cnn = models.vgg19(pretrained=True).features.to(device).eval()#加载预训练模型出错,手动下载模型到指定目录，之后改预训练为True
 
     # 所需的输出图像大小
-    imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
+    imsize = 1000 if torch.cuda.is_available() else 128  # use small size if no gpu
 
     loader = transforms.Compose([
         transforms.Resize(imsize),  # scale imported image
@@ -230,36 +230,20 @@ if __name__=='__main__':
     cnn_normalization_mean = torch.tensor([0.485, 0.456, 0.406]).to(device)
     cnn_normalization_std = torch.tensor([0.229, 0.224, 0.225]).to(device)
 
-    style_imgPath=r"..\data\data_Chen_new\patches\kq6_dom"
-    style_list=os.listdir(style_imgPath)
+    style_imgPath=r"..\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg"
     # style_img=image_loader(r'C:\Users\jiangshan\Desktop\XYY448.jpg')
-    input_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_img'
-    save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result'
-    input_list=os.listdir(input_path)
-    for i in range(len(input_list)):#input的列表长一点
-        if(i>len(style_list)-1):
-            j=i%(len(style_list))
-        else:
-            j=i
-        style_img = image_loader(style_imgPath+'\\'+style_list[j])
-        content_img = image_loader(input_path+'\\'+input_list[i])
-        assert style_img.size() == content_img.size(), \
-            "we need to import style and content images of the same size"
-        input_img = content_img.clone()
-        # 如果您想使用白噪声而取消注释以下行：
-        # input_img = torch.randn(content_img.data.size(), device=device)
-        # 将原始输入图像添加到图中：
-        # plt.figure()
-        # imshow(input_img, title='Input Image')
-        output = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
-                                    content_img, style_img, input_img)#执行风格迁移
-        vutils.save_image(output, save_path +'\\'+input_list[i], normalize=True)
-        # retval = cv2.imwrite(save_path +'\\'+each, output)
-
+    input_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\123.jpg'
+    save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\new.jpg'
+    style_img = image_loader(style_imgPath)
+    content_img = image_loader(input_path)
+    assert style_img.size() == content_img.size(), \
+        "we need to import style and content images of the same size"
+    input_img = content_img.clone()
+    # 如果您想使用白噪声而取消注释以下行：
+    # input_img = torch.randn(content_img.data.size(), device=device)
+    # 将原始输入图像添加到图中：
     # plt.figure()
-    # imshow(output, title='Output Image')
-
-    # sphinx_gallery_thumbnail_number = 4
-    # plt.ioff()
-    # plt.show()
-
+    # imshow(input_img, title='Input Image')
+    output = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
+                                content_img, style_img, input_img)#执行风格迁移
+    vutils.save_image(output, save_path, normalize=True)
