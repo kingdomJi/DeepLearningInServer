@@ -153,8 +153,8 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
 
-        #####添加空洞空间金字塔池化
-        self.aspp=ASPP.ASPP(512, [6, 12, 18])
+        #####添加空洞空间金字塔池化,加在encoder的结尾
+        self.aspp=ASPP.ASPP(512, [2,4,8])#[6, 12, 18]，另一组是[2,4,8]
         #######
 
         factor = 2 if bilinear else 1
@@ -220,8 +220,8 @@ class ResNet(nn.Module):
         # x = self.up4(x, x1)#64
         #############Jiang
         x=self.aspp(x4)#空间金字塔池化
-        #
-        x = self.up2(x)  # 传入第一次上采样结果加倒数第三次下采样结果（对称），512和256维度
+        ##############
+        x = self.up2(x)  # 对Unet而言，传入第一次上采样结果加倒数第三次下采样结果（对称），512和256维度。baseline直接传入512
         x = self.up3(x)#256->64
         x = self.up4(x)#64
         ####################

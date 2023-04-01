@@ -49,10 +49,13 @@ if __name__ == '__main__':
     #     # print(i, filename, lab, img_name)
     #     print(i, list[0].shape, list[1].shape, list[2])
     # save_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\WJS_trainbyChen_UnetSeg_e100\000000292_448.png'
-    pathroot='./data/evaluate_demo/pred_results'
-    csv_name = "test.csv"  # 保存PR曲线的数据
-    csv_path = pathroot+ '/'+ csv_name
-    print(r'{}'.format(csv_path))
+    # pathroot='./data/evaluate_demo/pred_results'
+    # csv_name = "test.csv"  # 保存PR曲线的数据
+    # csv_path = pathroot+ '/'+ csv_name
+    # print(r'{}'.format(csv_path))
+    checkpoint_Path = 'checkpoints/Resnet34/NeuralTransfer_L2=1e-6bias=0/'
+    list=checkpoint_Path.split('/')
+    print(list[2])
 
 
 

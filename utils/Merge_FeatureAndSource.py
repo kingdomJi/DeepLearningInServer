@@ -51,12 +51,19 @@ def Crop_sourceMap_LHS(img):#这里把原图裁成和被输出的预测图一样
 ######################Jiang
 if __name__=='__main__':
     ####王家山path
-    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyPublic-transfer_resnet34L2=1e-6\WJS_e44.png"
-    save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyPublic-transfer_resnet34L2=1e-6\WJS_e44_merge.png"
-    # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4bias=0_aug4ByJiang\LHS_e65.png"
-    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4bias=0_aug4ByJiang\LHS_e65_merge.png"
+    # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4bias=0_aug4ByJiang\WJS_DoubleResolution_e88.png"
+    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4bias=0_aug4ByJiang\WJS_DoubleResolution_e88.png_merge.png"
+    # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyNTransferAndkq6aug4_Resnet34L2=1e-6\WJS_e67.png"
+    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyNTransferAndkq6aug4_Resnet34L2=1e-6\WJS_e67_merge.png"
+    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-6ByJiang\WJS_half_e31.png"
+    save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-6ByJiang\WJS_half_e31_merge.png"
+    # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4_aug4ByJiang\WJS_0.25_e62.png"
+    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4_aug4ByJiang\WJS_0.25_e62_merge.png"
     # raw_dir = ".././data/Cut_LHS.png"
-    raw_dir = ".././data/Cut_WJS.png"
+    # raw_dir = ".././data/WJS_0.25.png"
+    raw_dir = ".././data/Cut_WJS_half.png"
+    # raw_dir = ".././data/Cut_WJS.png"
+    # raw_dir = ".././data/WJS_DoubleResolution_Cut.png"
     # raw_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_LHS.png"
 
     # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data/YanZheng/shenyuan_dom_clip2_e65.png"
@@ -90,7 +97,7 @@ if __name__=='__main__':
     #     image = Image.blend(image1, mask_color, 0.4)#合并两图
     #     image.save(save_dir+'/'+split[0]+'_Merge'+split[1])#存储合并图
     ####################合并单张图片(特征图和原图)
-    ## pre_mask=np.asarray(Image.open(pred_dir))#这个用了会报错
+    # pre_mask=np.asarray(Image.open(pred_dir))#这个用了会报错
     pre_mask = cv2.imread(pred_dir,cv2.IMREAD_GRAYSCALE)#opencv读取图像，直接返回numpy.ndarray 对象(高,宽)
     # print(np.unique(pre_mask))#[0,255]
     pre_mask[pre_mask==255] = 1
@@ -103,9 +110,9 @@ if __name__=='__main__':
     image = Image.blend(image1, mask_color, 0.4)#合并两图
     image.save(save_dir)#存储合并图
     ###切割图片
-    # souce_img_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\YanZheng/shenyuan_dom_clip2.tif'
-    # souce_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\YanZheng/shenyuan_dom_clip2_e65.png'
-    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\YanZheng/Cut_shenyuan_dom_clip2.tif"
+    # souce_img_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\WJS_DoubleResolution.png'
+    # souce_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34L2=1e-4bias=0_aug4ByJiang\WJS_DoubleResolution_e88.png'
+    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\WJS_DoubleResolution_Cut.png"
     # souce_img=Image.open(souce_img_path).convert('RGB')
     # souce_mask=Image.open(souce_mask_path)
     # new_img=Crop_sourceMap_WJS(souce_img,souce_mask)

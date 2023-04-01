@@ -222,7 +222,7 @@ if __name__=='__main__':
     cnn = models.vgg19(pretrained=True).features.to(device).eval()#加载预训练模型出错,手动下载模型到指定目录，之后改预训练为True
 
     # 所需的输出图像大小
-    imsize = 1000 if torch.cuda.is_available() else 128  # use small size if no gpu
+    imsize = 256 if torch.cuda.is_available() else 128  # use small size if no gpu
 
     loader = transforms.Compose([
         transforms.Resize(imsize),  # scale imported image
@@ -230,10 +230,10 @@ if __name__=='__main__':
     cnn_normalization_mean = torch.tensor([0.485, 0.456, 0.406]).to(device)
     cnn_normalization_std = torch.tensor([0.229, 0.224, 0.225]).to(device)
 
-    style_imgPath=r"..\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg"
+    style_imgPath=r"..\data\data_Chen_new\augmentation_Jiang\patches\aug2_seg\kq6_dom_aug\kq6_100194.png"
     # style_img=image_loader(r'C:\Users\jiangshan\Desktop\XYY448.jpg')
-    input_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\123.jpg'
-    save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\new.jpg'
+    input_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_img\CRACK500_20160328_151657_1_361.png'
+    save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\CRACK500_20160328_151657_1_361.png'
     style_img = image_loader(style_imgPath)
     content_img = image_loader(input_path)
     assert style_img.size() == content_img.size(), \

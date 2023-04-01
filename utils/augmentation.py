@@ -283,15 +283,15 @@ if __name__=='__main__':
     # path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask'
     # resize(path_img, path_save, mask=True, size=(256, 256))
     #########单张resize
-    # path_img = r'..\data\trainbyChen__Resnet34_IncreaseL2=1e-5_aug5_2_e87\000000292.png'
-    # path_save = r'..\data\trainbyChen__Resnet34_IncreaseL2=1e-5_aug5_2_e87\000000292_up1024.png'
-    path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
-    path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
+    path_img = r'..\data\WJS.png'
+    path_save = r'..\data\WJS_DoubleResolution.png'
+    # path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
+    # path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
     img = Image.open(path_img)
     print(np.size(img, 0))#h
     print(np.size(img, 1))#w
-    # img_resize = img.resize(size=((int(np.size(img, 1)*4)),int(np.size(img, 0)*4)))#先w后h
-    img_resize = img.resize(size=(2693, 3368))  # 先w后h
+    img_resize = img.resize(size=((int(np.size(img, 1)*2)),int(np.size(img, 0)*2)))#先w后h
+    # img_resize = img.resize(size=(2693, 3368))  # 先w后h
     img_resize.save(path_save)
     # ######################################
     # 删除某一次的增强数据集

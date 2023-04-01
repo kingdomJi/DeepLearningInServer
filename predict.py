@@ -68,7 +68,7 @@ def predict_img(net,
         #classes维度下，只有一个为1，其他全为0，对应多分类中每个像素只对应一个类别
 def get_args():
     parser = argparse.ArgumentParser(description='Predict masks from input images')
-    parser.add_argument('--model', '-m', default='./checkpoints/Resnet34/Neural-Transfer_L2=1e-6bias=0/checkpoint_epoch62.pth', metavar='FILE',
+    parser.add_argument('--model', '-m', default='./checkpoints/Resnet34/Chen_Aug4_Seg_e100_increaseL2=1e-6bias=0/checkpoint_epoch31.pth', metavar='FILE',
     #parser.add_argument('--model', '-m',default='./checkpoints_UNet_Chen_Unenhance_e40/checkpoint_epoch40.pth',metavar='FILE',
                         help='Specify the file in which the model is stored')
     parser.add_argument('--input', '-i', metavar='INPUT', nargs='+', help='Filenames of input images', required=True)

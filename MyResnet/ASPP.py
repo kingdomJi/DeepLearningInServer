@@ -51,7 +51,7 @@ class ASPP(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.5))
 
-    def forward(self, x):
+    def forward(self, x):#x是特征图
         res = []
         for conv in self.convs:
             res.append(conv(x))
@@ -59,6 +59,6 @@ class ASPP(nn.Module):
         return self.project(res)
 
 
-# aspp = ASPP(512, [6, 12, 18])#这个[6, 12, 18]是默认的padding和dilation
+# aspp = ASPP(512, [6, 12, 18])#这个[6, 12, 18]是默认的padding和dilation,另一组是[2,4,8]
 # x = torch.rand(2, 512, 13, 13)#batch,channels,h,w
 # print(aspp(x).shape)#输出batch,channels,h,w

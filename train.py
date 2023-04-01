@@ -19,21 +19,22 @@ from DeepCrack.codes.model.deepcrack import DeepCrack
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
 from resnet.models import networks
-from MyResnet.ResNet_baseLine import resnet34
-# from MyResnet.ResnetWithASPP_model import resnet34
+from MyResnet import ResNet_baseLine
+from MyResnet import ResnetWithASPP_model
 from evaluate import evaluate,evaluate_J
 from unet import UNet
 
-# dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_dom_aug\\')
-dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug8_seg\TransPublicAndkq6_img\\')
+dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug4_seg\kq6_dom_aug\\')
+# dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
-# dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_label_seg_aug\\')
-dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug8_seg\TransPublicAndkq6_seg\\')
+dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug4_seg\kq6_label_seg_aug\\')
+# dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-dir_checkpoint = Path('checkpoints/Resnet34/NeuralTransferAndkq6_L2=1e-8bias=0/')#这里基于使用的网络
+checkpoint_Path='checkpoints/Resnet34/Chen_Aug4_Seg_e100_withASPPIncreaseL2=1e-4bias=0/'
+dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
 def train_net(net,
@@ -66,7 +67,8 @@ def train_net(net,
     #验证集加载器，传入验证集，不打乱数据，。。。
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
-    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='NeuralTransferAndkq6_L2=1e-8bias=0训练')#每次训练更改
+    list_chP = checkpoint_Path.split('/')
+    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='{}'.format(list_chP[2])+'训练')#每次训练更改
     # experiment = wandb.init(project='DeepCrack', resume='allow', anonymous='must',
     #                         name='Chen_Aug5_2_Seg_e100_increaseL2=1e-5训练')
     # experiment = wandb.init(project='Unet', resume='allow', anonymous='must', name='Chen_Aug6_Seg_e100训练')
@@ -111,7 +113,7 @@ def train_net(net,
 
     # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)
     optimizer = optim.RMSprop([
-        {'params':params_others_copy , 'weight_decay': 1e-8},
+        {'params':params_others_copy , 'weight_decay': 1e-4},
         {'params': params_bias_copy, 'weight_decay': 0}
     ], lr=learning_rate, momentum=0.9)
     # optimizer = optim.SGD(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)#不能乱用，容易不收敛
@@ -247,7 +249,7 @@ def get_args():#传入参数
     # metavar - 在使用方法消息中使用的参数值示例。
     # dest - 被添加到parse_args()所返回对象上的属性名。
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=4, help='Batch size')
+    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=8, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')#加载已经训练过的模型
@@ -278,8 +280,8 @@ if __name__ == '__main__':
 
     # net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)#通道数：PGB、每个像素要获取的概率、双线性
     # net = segNet_model.SegNet(n_channels=3, n_classes=args.classes)
-    # net=resUnet34(n_channels=3,n_classes=2,pretrained=False)
-    net = resnet34(n_channels=3, n_classes=2, pretrained=False)  # baseLine
+    net = ResnetWithASPP_model.resnet34(n_channels=3,n_classes=2,pretrained=False) # baseLine+ASPP
+    # net = ResNet_baseLine.resnet34(n_channels=3, n_classes=2, pretrained=False)  # baseLine
     # net=DeepCrack(n_channels=3,n_classes=args.classes)##默认input_channnel为3
 
     logging.info(f'Network:\n'
