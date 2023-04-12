@@ -230,10 +230,10 @@ if __name__=='__main__':
     cnn_normalization_mean = torch.tensor([0.485, 0.456, 0.406]).to(device)
     cnn_normalization_std = torch.tensor([0.229, 0.224, 0.225]).to(device)
 
-    style_imgPath=r"..\data\data_Chen_new\augmentation_Jiang\patches\aug2_seg\kq6_dom_aug\kq6_100194.png"
+    style_imgPath=r"E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\test_img\kq6_100700.png"
     # style_img=image_loader(r'C:\Users\jiangshan\Desktop\XYY448.jpg')
-    input_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_img\CRACK500_20160328_151657_1_361.png'
-    save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\CRACK500_20160328_151657_1_361.png'
+    input_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\test_img\CRACK500_20160328_153020_1_721_new.png'
+    save_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\test_img\CRACK500_20160328_153020_1_721_TRnew.png'
     style_img = image_loader(style_imgPath)
     content_img = image_loader(input_path)
     assert style_img.size() == content_img.size(), \

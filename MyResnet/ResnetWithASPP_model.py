@@ -1,5 +1,5 @@
 from .unet_parts import *
-#JiangShan，Resnet较为复杂，尽量在原Resnet基础上改动，增加U-net模块内容
+#JiangShan，Resnet较为复杂，尽量在原Resnet基础上改动，增加其他模块内容
 from MyResnet import ASPP
 try:
     from torch.hub import load_state_dict_from_url
@@ -154,7 +154,7 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2])
 
         #####添加空洞空间金字塔池化,加在encoder的结尾
-        self.aspp=ASPP.ASPP(512, [2,4,8])#[6, 12, 18]，另一组是[2,4,8]
+        self.aspp=ASPP.ASPP(512,[6, 12, 18])#[6, 12, 18]，另一组是[2,4,8]
         #######
 
         factor = 2 if bilinear else 1
@@ -192,6 +192,8 @@ class ResNet(nn.Module):
                                 norm_layer=norm_layer))
 
         return nn.Sequential(*layers) #返回一个由多个block组成的网络model，该model里的block已经完成初始化
+
+
 
     def forward(self, x):#这里的x应该是传入的原图（经过dataloder）
         # x1 = self.inc(x)#这里是原U-net，64通道

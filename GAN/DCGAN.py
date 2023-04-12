@@ -29,16 +29,16 @@
 import os, sys
 import time
 import shutil
-if os.path.exists("out"):
-    print("移除现有 out 文件夹！")
+if os.path.exists("out_anime"):
+    print("移除现有 out_anime 文件夹！")
     if sys.platform.startswith("win"):
-        shutil.rmtree("./out")
+        shutil.rmtree("./out_anime")
     else:
-        os.system("rm -r ./out")
+        os.system("rm -r ./out_anime")
 
-time.sleep(1)
-print("创建 out 文件夹！")
-os.mkdir("./out")
+# time.sleep(1)
+# print("创建 out 文件夹！")
+os.mkdir("./out_anime")
 
 
 # 1. 在加载该 NoteBook 文件时,会自动加载数据集至 `./download/mouth` 文件夹下。若没有自动加载数据集，则需要手动加载，手动加载方式如下：
@@ -99,7 +99,7 @@ random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 
 # 数据集所在路径
-dataroot = "Cracks/"
+dataroot = r"..\data\Anime-Face-GAN-Keras\\"
 # 数据加载的进程数
 workers = 0
 # Batch size 大小
@@ -388,7 +388,7 @@ for epoch in range(num_epochs):
                 fig = plt.figure(figsize=(8, 8))
                 plt.imshow(np.transpose(i, (1, 2, 0)))
                 plt.axis('off')  # 关闭坐标轴
-                plt.savefig("out/%d_%d.png" % (epoch, iters))
+                plt.savefig('out_anime'+"/%d_%d.png" % (epoch, iters))
                 plt.close(fig)
             iters += 1
         print('time:', time.time() - start)

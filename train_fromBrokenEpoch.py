@@ -24,16 +24,19 @@ from unet import UNet
 """
 这里想在断点之后继续训练需要和断开前的训练参数保持一致（优化器和loss等）
 """
-# dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_dom_aug\\')
-dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug8_seg\TransPublicAndkq6_img\\')
+dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\NewTransfer_img\\')
+# dir_img = Path(r'.\data\data_Chen_new\patches\kq6_dom\\')
+# dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
-# dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug_seg\kq6_label_seg_aug\\')
-dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug8_seg\TransPublicAndkq6_seg\\')
+dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
+# dir_mask = Path(r'.\data\data_Chen_new\patches\kq6_label_seg\\')
+# dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-dir_checkpoint = Path('checkpoints/Resnet34/NeuralTransferAndkq6_L2=1e-8bias=0/')
+checkpoint_Path='checkpoints/Resnet34/NewNeuralTransfer_L2=1e-6bias=0/'
+dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 
 def train_net(net,
               device,
@@ -68,7 +71,8 @@ def train_net(net,
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
     # experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='crack_segmentation_dataset_e100_c=2训练')#每次训练更改
-    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must', name='NeuralTransferAndkq6_L2=1e-8bias=0_continue训练')
+    list_chP = checkpoint_Path.split('/')
+    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='{}'.format(list_chP[1]+'/'+list_chP[2])+'继续训练')#每次训练更改
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
                                   amp=amp))
@@ -109,7 +113,7 @@ def train_net(net,
             value.requires_grad = True  #改回来原来参数
     ################################
     optimizer = optim.RMSprop([
-        {'params': params_others_copy, 'weight_decay': 1e-8},
+        {'params': params_others_copy, 'weight_decay': 1e-6},
         {'params': params_bias_copy, 'weight_decay': 0}
     ], lr=learning_rate, momentum=0.9)
     # optimizer=optim.Adam(net.parameters(),lr=learning_rate)#这个不能乱用，可能会优化不了模型
@@ -238,7 +242,7 @@ def get_args():#传入参数
                         help='Learning rate', dest='lr')
     # parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
     ## 这里加载已经训练过的模型
-    parser.add_argument('--load', '-f', type=str, default='checkpoints/Resnet34/NeuralTransferAndkq6_L2=1e-8bias=0/checkpoint_epoch7.pth')#Jiang
+    parser.add_argument('--load', '-f', type=str, default='checkpoints/Resnet34/NewNeuralTransfer_L2=1e-6bias=0/checkpoint_epoch20.pth')#Jiang
     #例如./checkpoints_SegNet_crack/checkpoint_epoch20.pth
     parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
@@ -267,7 +271,7 @@ if __name__ == '__main__':
     # net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)#通道数：PGB、每个像素要获取的概率、双线性
     # net = segNet_model.SegNet(n_channels=3, n_classes=args.classes)
     # net= networks.resnet34(pretrained=False)#初始化网络
-    net=resnet34(n_channels=3,n_classes=2,pretrained=False)
+    net=resnet34(n_channels=3,n_classes=2,pretrained=False)#baseline
     # net=DeepCrack(num_classes=args.classes)##默认input_channnel为3
 
     logging.info(f'Network:\n'
@@ -276,7 +280,7 @@ if __name__ == '__main__':
                  # f'\t{"Bilinear" if net.bilinear else "Transposed conv"} upscaling')##U-net独有
 
     if args.load:#加载预训练模型时
-        start_epoch = 8  # 设置开始训练时的第一个epoch
+        start_epoch = 21  # 设置开始训练时的第一个epoch
 
         net.load_state_dict(torch.load(args.load, map_location=device))
         logging.info(f'Model loaded from {args.load}')

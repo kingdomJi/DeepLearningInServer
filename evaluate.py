@@ -44,7 +44,7 @@ def evaluate_J(net, dataloader, device):
     # Fixes a potential division by zero error,修复潜在的除以零错误
     if num_val_batches == 0:
         return 1
-    return 1-(dice_score/ num_val_batches)+e_loss/ num_val_batches  # 返回验证集平均loss
+    return (1-(dice_score/ num_val_batches))*0.5+(e_loss/ num_val_batches)*0.5  # 返回验证集平均loss
 
 
 def evaluate(net, dataloader, device):#原版，输入验证集dataloader

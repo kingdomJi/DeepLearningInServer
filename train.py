@@ -1,13 +1,9 @@
 import argparse
 import logging
-import sys
 from pathlib import Path
-import os
 import re
 import numpy as np
 
-from MyResnet.ResNet_baseLine import resnet34
-from SegNet import segNet_model
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,25 +11,25 @@ import wandb
 from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm#tqdm是一个进度条可视化库，可以帮助我们监测程序运行的进度，估计运行的时长，甚至可以协助debug。
-from DeepCrack.codes.model.deepcrack import DeepCrack
-from utils.data_loading import BasicDataset, CarvanaDataset
+from utils.data_loading import BasicDataset
 from utils.dice_score import dice_loss
-from resnet.models import networks
 from MyResnet import ResNet_baseLine
-from MyResnet import ResnetWithASPP_model
-from evaluate import evaluate,evaluate_J
-from unet import UNet
+from TransUnet.networks.vit_seg_modeling import VisionTransformer as ViT_seg
+from TransUnet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
+from evaluate import evaluate_J
 
-dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug4_seg\kq6_dom_aug\\')
+# dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug9_seg\NewTransPublicAndkq6_img\\')
+dir_img = Path(r'.\data\data_Chen_new\patches\kq6_dom\\')
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
-dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug4_seg\kq6_label_seg_aug\\')
+# dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug9_seg\NewTransPublicAndkq6_seg\\')
+dir_mask = Path(r'.\data\data_Chen_new\patches\kq6_label_seg\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-checkpoint_Path='checkpoints/Resnet34/Chen_Aug4_Seg_e100_withASPPIncreaseL2=1e-4bias=0/'
+checkpoint_Path='checkpoints/TransUnet/kq6_optim=SGD/'
 dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
@@ -59,7 +55,7 @@ def train_net(net,
         #基于训练集和验证集的个数，随机分割数据集，manual：手动
         #torch.Generator().manual_seed：设置CPU生成随机数的种子。
     # 3. Create data loaders
-    loader_args = dict(batch_size=batch_size, num_workers=2, pin_memory=False)
+    loader_args = dict(batch_size=batch_size, num_workers=0, pin_memory=False)
     #加载器参数是字典形式，包含栅格尺寸、工作者数（关系到内存）、是否设置锁页内存
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     #训练集加载器，传入训练集，打乱数据，**loader_args指将字典作为参数传入，没有传入的参数按照源代码构造器中的默认值算。
@@ -68,7 +64,7 @@ def train_net(net,
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
     list_chP = checkpoint_Path.split('/')
-    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='{}'.format(list_chP[2])+'训练')#每次训练更改
+    experiment = wandb.init(project='TransUnet', resume='allow', anonymous='must',name='{}'.format(list_chP[1]+'/'+list_chP[2])+'训练')#每次训练更改
     # experiment = wandb.init(project='DeepCrack', resume='allow', anonymous='must',
     #                         name='Chen_Aug5_2_Seg_e100_increaseL2=1e-5训练')
     # experiment = wandb.init(project='Unet', resume='allow', anonymous='must', name='Chen_Aug6_Seg_e100训练')
@@ -113,7 +109,7 @@ def train_net(net,
 
     # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)
     optimizer = optim.RMSprop([
-        {'params':params_others_copy , 'weight_decay': 1e-4},
+        {'params':params_others_copy , 'weight_decay': 1e-6},
         {'params': params_bias_copy, 'weight_decay': 0}
     ], lr=learning_rate, momentum=0.9)
     # optimizer = optim.SGD(net.parameters(), lr=learning_rate, weight_decay=1e-4, momentum=0.9)#不能乱用，容易不收敛
@@ -166,17 +162,17 @@ def train_net(net,
                          # print(torch.sigmoid(masks_pred).shape)#[batch, classes, 高, 宽]
                          # print(true_masks.shape)#[batch, 高, 宽]
                          criterion=nn.BCELoss()#针对二分类的交叉熵BCE
-                         loss = criterion(np.squeeze(torch.sigmoid(masks_pred)).float(), true_masks.float()) + \
+                         loss = criterion(np.squeeze(torch.sigmoid(masks_pred)).float(), true_masks.float())*0.5 + \
                                dice_loss(np.squeeze(torch.sigmoid(masks_pred)).float(),  #n_classes=1分类（二分类）归一,将值收敛到[0,1]
                                            true_masks.float(),
-                                           multiclass=False)  # 把true_masks变成4维，增加n_classes维度和masks_pred对应
+                                           multiclass=False)*0.5  # 把true_masks变成4维，增加n_classes维度和masks_pred对应
                     else:
                          # print(F.softmax(masks_pred, dim=1).shape)#[batch, classes, 高, 宽]
                          # print(F.one_hot(true_masks, net.n_classes).permute(0, 3, 1, 2).shape)
-                         loss = criterion(masks_pred, true_masks) + \
+                         loss = criterion(masks_pred, true_masks)*0.5 + \
                                dice_loss(F.softmax(masks_pred, dim=1).float(),#对向量进行归一化,多个类加起来概率为1
                                            F.one_hot(true_masks, net.n_classes).permute(0, 3, 1, 2).float(),
-                                           multiclass=True)#把true_masks变成4维，增加n_classes维度和masks_pred对应
+                                           multiclass=True)*0.5#把true_masks变成4维，增加n_classes维度和masks_pred对应
                     ########################
                 optimizer.zero_grad(set_to_none=True)#梯度清零
                 grad_scaler.scale(loss).backward()#反向传播
@@ -202,7 +198,7 @@ def train_net(net,
                         for tag, value in net.named_parameters():
                             tag = tag.replace('/', '.')
                             histograms['Weights/' + tag] = wandb.Histogram(value.data.cpu())
-                            histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
+                            # histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         ################Jiang
                         #val_score=evaluate(net, val_loader, device)#原版，evaluate返回验证集上的均值dice_score
@@ -249,7 +245,7 @@ def get_args():#传入参数
     # metavar - 在使用方法消息中使用的参数值示例。
     # dest - 被添加到parse_args()所返回对象上的属性名。
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=8, help='Batch size')
+    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=4, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')#加载已经训练过的模型
@@ -280,8 +276,11 @@ if __name__ == '__main__':
 
     # net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)#通道数：PGB、每个像素要获取的概率、双线性
     # net = segNet_model.SegNet(n_channels=3, n_classes=args.classes)
-    net = ResnetWithASPP_model.resnet34(n_channels=3,n_classes=2,pretrained=False) # baseLine+ASPP
-    # net = ResNet_baseLine.resnet34(n_channels=3, n_classes=2, pretrained=False)  # baseLine
+    # net=ResNetWithASPP_FPN.resnet50(n_channels=3,n_classes=2,pretrained=False) # baseLine+ASPP+FPN
+    # net=ResUNetwithASPP.resnet34(n_channels=3,n_classes=2,pretrained=False)
+    # net = ResnetWithASPP_model.resnet34(n_channels=3,n_classes=2,pretrained=False) # baseLine+ASPP
+    # net=resunetPP_pytorch.build_resunetplusplus(n_channels=3,n_classes=2)#resUNet++
+    net = ResNet_baseLine.resnet34(n_channels=3, n_classes=2, pretrained=False)  # baseLine
     # net=DeepCrack(n_channels=3,n_classes=args.classes)##默认input_channnel为3
 
     logging.info(f'Network:\n'

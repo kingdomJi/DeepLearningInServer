@@ -3,7 +3,6 @@ import logging
 import os
 
 import sklearn.metrics
-
 from SegNet import segNet_model
 import numpy as np
 import torch
@@ -12,7 +11,7 @@ from PIL import Image
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True#
 Image.MAX_IMAGE_PIXELS = None#导入以防止因为图片过大而报错
-
+import ttach as tta
 from torchvision import transforms
 from DeepCrack.codes.model.deepcrack import DeepCrack
 from utils.CropAndConnect import CropAndConnect
@@ -21,8 +20,9 @@ from unet import UNet
 from utils.utils import plot_img_and_mask
 from sklearn.metrics import precision_recall_curve
 import matplotlib.pyplot as plt
-from MyResnet.ResnetWithASPP_model import resnet34
-from MyResnet.ResNet_baseLine import resnet34
+from MyResnet import ResNet_baseLine,ResnetWithASPP_model,ResNetWithASPP_FPN,ResUNet
+from ResUNetPlusPlus import resunetPP_pytorch
+
 def predict_img(net,
                 full_img,
                 device,
@@ -37,8 +37,9 @@ def predict_img(net,
         #####################Jiang
         # output=flip_pred(net,img)#旋转加原图，三合一
         ######################
-        print(img.shape)
+        print(img.shape)#(1,3,256,256)
         output = net(img)#原
+        # output=TTA(net,img)#Jiang
         # print(output.shape)#(classes=2时,size=[1, 2, 224, 224]),值为[-1.9345, -2.8159, -2.9056,  ..., -3.5215, -2.9572, -2.0101],[ 1.8863,  2.9546,  3.1037,  ...,  4.0547,  3.3417,  2.5655]格式
         # output的格式是classes层的概率图，概率尚且未归一化
         # print(output)
@@ -68,7 +69,7 @@ def predict_img(net,
         #classes维度下，只有一个为1，其他全为0，对应多分类中每个像素只对应一个类别
 def get_args():
     parser = argparse.ArgumentParser(description='Predict masks from input images')
-    parser.add_argument('--model', '-m', default='./checkpoints/Resnet34/Chen_Aug4_Seg_e100_increaseL2=1e-6bias=0/checkpoint_epoch31.pth', metavar='FILE',
+    parser.add_argument('--model', '-m', default='./checkpoints/Resnet34/NewNeuralTransferAndkq6_L2=1e-6bias=0/checkpoint_epoch35.pth', metavar='FILE',
     #parser.add_argument('--model', '-m',default='./checkpoints_UNet_Chen_Unenhance_e40/checkpoint_epoch40.pth',metavar='FILE',
                         help='Specify the file in which the model is stored')
     parser.add_argument('--input', '-i', metavar='INPUT', nargs='+', help='Filenames of input images', required=True)
@@ -123,6 +124,20 @@ def mask_to_image(mask: np.ndarray):
             return Image.fromarray((np.squeeze(mask) * 255).astype(np.uint8))#三维降二维
         return Image.fromarray((np.argmax(mask, axis=0) * 255/(mask.shape[0]-1)).astype(np.uint8))#Jiang，对0，1矩阵乘255
         #return Image.fromarray((np.argmax(mask, axis=0) * 255 / mask.shape[0]).astype(np.uint8))#原版
+
+def TTA(model,img):#测试时增强Test Time Augmentation
+    transforms = tta.Compose(#增强流水线
+        [
+            # tta.HorizontalFlip(),
+            # tta.Rotate90(angles=[0, 180]),
+            # tta.Scale(scales=[1, 2,4]),
+            tta.Scale(scales=[1,0.5]),
+            # tta.Multiply(factors=[0.9, 1, 1.1]),
+        ]
+    )
+    tta_model = tta.SegmentationTTAWrapper(model, transforms)
+    mask_pre=tta_model(img)
+    return  mask_pre
 
 class Metrics():
     def __init__(self, preds, labels):
@@ -218,11 +233,13 @@ if __name__ == '__main__':
     out_files = get_output_filenames(args)#原版，这里返回列表或单个值，取决于输入情况
     # out_files=get_output_filenames_J(in_files)#Jiang,当输入是文件夹时，调用该行
     # print(out_files)
-
     # net = UNet(n_channels=3, n_classes=2, bilinear=args.bilinear)
     # net=segNet_model.SegNet(n_channels=3, n_classes=2)#选择网络
-    net=resnet34(n_channels=3, n_classes=2, pretrained=False)#baseLine
-    # net = resUnet34(n_channels=3, n_classes=2, pretrained=False)
+    net=ResNet_baseLine.resnet34(n_channels=3, n_classes=2, pretrained=False)#baseLine
+    # net=ResnetWithASPP_model.resnet34(n_channels=3, n_classes=2, pretrained=False)#ASPP
+    # net = ResUNetwithASPP.resnet34(n_channels=3, n_classes=2, pretrained=False)#ResUNetwithASPP
+    # net = resunetPP_pytorch.build_resunetplusplus(n_channels=3,n_classes=2)#resunet++
+    # net =ResNetWithASPP_FPN.resnet50(n_channels=3, n_classes=2, pretrained=False)#ASPP+FPN
     # net=DeepCrack(n_channels=3,n_classes=2)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -239,7 +256,7 @@ if __name__ == '__main__':
         img = Image.open(filename).convert('RGB')#原,打开待预测图像,保持以RGB模式打开，防止四通道图片传入
         img = np.asarray(img)#这里是后面加的，把CropAndConnect.Crop里的开头转np拿到这里了
         # print(img.size)#(高，宽)
-        if img.shape[0]>2000 and img.shape[1]>2000 and crop_1024==False:#当输入很大一幅图时调用这个地方，切割预测
+        if img.shape[0]*img.shape[1]>1000000 and crop_1024==False:#当输入很大一幅图时调用这个地方，切割预测
             #######################这里执行Crop处理img
             imgs = CropAndConnect.Crop(img)  # 返回一个切割完的五维图片集数组
             print(imgs.shape)#()

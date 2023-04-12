@@ -238,7 +238,7 @@ if __name__=='__main__':
     save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result'
     input_list=os.listdir(input_path)
     for i in range(len(input_list)):#input的列表
-        j=i%11#j取前11个kq6的图像进行风格迁移
+        j=i%25#j取前25个kq6的图像进行风格迁移
         style_img = image_loader(style_imgPath+'\\'+style_list[j])
         content_img = image_loader(input_path+'\\'+input_list[i])
         assert style_img.size() == content_img.size(), \
