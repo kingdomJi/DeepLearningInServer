@@ -29,7 +29,7 @@ dir_mask = Path(r'.\data\data_Chen_new\patches\kq6_label_seg\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-checkpoint_Path='checkpoints/TransUnet/kq6_optim=SGD/'
+checkpoint_Path='checkpoints/Resnet34/kq6_optim=optim.RMSprop_L2=1e-6/'
 dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
@@ -64,7 +64,7 @@ def train_net(net,
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
     list_chP = checkpoint_Path.split('/')
-    experiment = wandb.init(project='TransUnet', resume='allow', anonymous='must',name='{}'.format(list_chP[1]+'/'+list_chP[2])+'训练')#每次训练更改
+    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='{}'.format(list_chP[1]+'/'+list_chP[2])+'训练')#每次训练更改
     # experiment = wandb.init(project='DeepCrack', resume='allow', anonymous='must',
     #                         name='Chen_Aug5_2_Seg_e100_increaseL2=1e-5训练')
     # experiment = wandb.init(project='Unet', resume='allow', anonymous='must', name='Chen_Aug6_Seg_e100训练')

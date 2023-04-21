@@ -281,7 +281,7 @@ class Conv2dReLU(nn.Sequential):
         super(Conv2dReLU, self).__init__(conv, bn, relu)
 
 
-class DecoderBlock(nn.Module):
+class DecoderBlock(nn.Module):#单个decoder层
     def __init__(
             self,
             in_channels,
@@ -323,11 +323,11 @@ class SegmentationHead(nn.Sequential):
         super().__init__(conv2d, upsampling)
 
 
-class DecoderCup(nn.Module):
+class DecoderCup(nn.Module):#总decoder
     def __init__(self, config):
         super().__init__()
         self.config = config
-        head_channels = 512
+        head_channels = 512#decoder 从512维开始解码
         self.conv_more = Conv2dReLU(
             config.hidden_size,
             head_channels,
@@ -335,9 +335,9 @@ class DecoderCup(nn.Module):
             padding=1,
             use_batchnorm=True,
         )
-        decoder_channels = config.decoder_channels
+        decoder_channels = config.decoder_channels#(256, 128, 64, 16)元组
         in_channels = [head_channels] + list(decoder_channels[:-1])
-        out_channels = decoder_channels
+        out_channels = decoder_channels#(256, 128, 64, 16)元组
 
         if self.config.n_skip != 0:
             skip_channels = self.config.skip_channels
@@ -358,16 +358,21 @@ class DecoderCup(nn.Module):
         x = hidden_states.permute(0, 2, 1)
         x = x.contiguous().view(B, hidden, h, w)
         x = self.conv_more(x)
-        for i, decoder_block in enumerate(self.blocks):
+        for i, decoder_block in enumerate(self.blocks):#依次执行decoder层
             if features is not None:
                 skip = features[i] if (i < self.config.n_skip) else None
             else:
                 skip = None
             x = decoder_block(x, skip=skip)
+            # jiang
+            # print(x.shape)  #torch.Size([4, 256, 32, 32])
+                            # torch.Size([4, 128, 64, 64])
+                            # torch.Size([4, 64, 128, 128])
+                            # torch.Size([4, 16, 256, 256])
         return x
 
 
-class VisionTransformer(nn.Module):
+class VisionTransformer(nn.Module):#main
     def __init__(self, config, img_size=224, num_classes=21843, zero_head=False, vis=False):
         super(VisionTransformer, self).__init__()
         self.num_classes = num_classes
@@ -386,8 +391,8 @@ class VisionTransformer(nn.Module):
         if x.size()[1] == 1:
             x = x.repeat(1,3,1,1)
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)
-        x = self.decoder(x, features)
-        logits = self.segmentation_head(x)
+        x = self.decoder(x, features)#torch.Size([4, 16, 256, 256])
+        logits = self.segmentation_head(x)#再经过一次卷积使输出降为output_channels,即2,[b_size, 2, 256, 256]
         return logits
 
     def load_from(self, weights):

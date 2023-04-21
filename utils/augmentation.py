@@ -242,12 +242,14 @@ def resize(path_img,path_save,mask=False,size=(256,256)):
     img_namelist=os.listdir(path_img)
     if mask==False:
         for each in img_namelist:
+            print('读取:',each)
             img=Image.open(path_img+'/'+each)
             img_resize=img.resize(size)
             img_savePath=path_save+'/'+each#os.path.splitext(each)[0]+'.png'
             img_resize.save(img_savePath)
     if mask==True:
         for each in img_namelist:
+            print('读取:', each)
             img=Image.open(path_img+'/'+each)
             img_resize=img.resize(size)
             img_savePath=path_save+'/'+each#不改后缀
@@ -279,20 +281,20 @@ if __name__=='__main__':
     # trans=augmentation()
     # print(aug_test(image_path,save_path,trans))
     ########################resize一个目录
-    # path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask'
-    # path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask'
-    # resize(path_img, path_save, mask=True, size=(256, 256))
+    path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\publicAndkq6\kq6'
+    path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\publicAndkq6\kq6_448'
+    resize(path_img, path_save, mask=False, size=(448, 448))
     #########单张resize
-    path_img = r'..\data\WJS.png'
-    path_save = r'..\data\WJS_DoubleResolution.png'
-    # path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
-    # path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
-    img = Image.open(path_img)
-    print(np.size(img, 0))#h
-    print(np.size(img, 1))#w
-    img_resize = img.resize(size=((int(np.size(img, 1)*2)),int(np.size(img, 0)*2)))#先w后h
-    # img_resize = img.resize(size=(2693, 3368))  # 先w后h
-    img_resize.save(path_save)
+    # path_img = r'..\data\WJS.png'
+    # path_save = r'..\data\WJS_DoubleResolution.png'
+    # # path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
+    # # path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\向日葵.jpg'
+    # img = Image.open(path_img)
+    # print(np.size(img, 0))#h
+    # print(np.size(img, 1))#w
+    # img_resize = img.resize(size=((int(np.size(img, 1)*2)),int(np.size(img, 0)*2)))#先w后h
+    # # img_resize = img.resize(size=(2693, 3368))  # 先w后h
+    # img_resize.save(path_save)
     # ######################################
     # 删除某一次的增强数据集
     # delete_aug(img_list,mask_seg_list,save_path_source,save_path_label_seg,save_path_label_line,3)

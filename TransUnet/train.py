@@ -17,18 +17,18 @@ from TransUnet.networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from TransUnet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from evaluate_T import evaluate_J
 
-dir_img = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\aug9_seg\NewTransPublicAndkq6_img\\')
+dir_img = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\NewTransfer_img\\')
 # dir_img = Path(r'..\data\data_Chen_new\patches\kq6_dom\\')
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
-dir_mask = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\aug9_seg\NewTransPublicAndkq6_seg\\')
+dir_mask = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'..\data\data_Chen_new\patches\kq6_label_seg\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-checkpoint_Path='../checkpoints/TransUnet/NewTransPublicAndkq6_optim=RMSprop_L2=1e-4/'
+checkpoint_Path='../checkpoints/TransUnet/NewTransPublic_optim=RMSprop_L2=1e-6/'
 dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
@@ -107,7 +107,7 @@ def train_net(net,
     ################################
 
     optimizer = optim.RMSprop([
-        {'params':params_others_copy , 'weight_decay': 1e-4},
+        {'params':params_others_copy , 'weight_decay': 1e-6},
         {'params': params_bias_copy, 'weight_decay': 0}
     ], lr=learning_rate, momentum=0.9)
     # optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=0.9, weight_decay=0.0001)#TransUnet原配

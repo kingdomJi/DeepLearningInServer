@@ -16,10 +16,12 @@ from tqdm import tqdm#tqdm是一个进度条可视化库，可以帮助我们监
 from DeepCrack.codes.model.deepcrack import DeepCrack
 from utils.data_loading import BasicDataset, CarvanaDataset
 from utils.dice_score import dice_loss
+from TransUnet.networks.vit_seg_modeling import VisionTransformer as ViT_seg
+from TransUnet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from resnet.models import networks
 from MyResnet.ResNet_baseLine import resnet34
 # from MyResnet.ResnetWithASPP_model import resnet34
-from evaluate import evaluate,evaluate_J
+from evaluate_T import evaluate,evaluate_J
 from unet import UNet
 """
 这里想在断点之后继续训练需要和断开前的训练参数保持一致（优化器和loss等）
@@ -27,15 +29,15 @@ from unet import UNet
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\NewTransfer_img\\')
 # dir_img = Path(r'.\data\data_Chen_new\patches\kq6_dom\\')
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
-dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
+dir_img=Path(r'..\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'.\data\data_Chen_new\patches\kq6_label_seg\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
-dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
+dir_mask = Path(r'..\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-checkpoint_Path='checkpoints/Resnet34/Public_L2=1e-6bias=0/'
+checkpoint_Path='../checkpoints/TransUnet/Public_optim=RMSprop_L2=1e-6/'
 dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 
 def train_net(net,
@@ -72,7 +74,7 @@ def train_net(net,
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
     # experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='crack_segmentation_dataset_e100_c=2训练')#每次训练更改
     list_chP = checkpoint_Path.split('/')
-    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='{}'.format(list_chP[1]+'/'+list_chP[2])+'继续训练')#每次训练更改
+    experiment = wandb.init(project='Resnet34', resume='allow', anonymous='must',name='{}'.format(list_chP[2]+'/'+list_chP[3])+'继续训练')#每次训练更改
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
                                   amp=amp))
@@ -138,34 +140,27 @@ def train_net(net,
                 # print(np.unique(true_masks))#应该是0和1
                 #print(true_masks.shape)#torch.Size([1, 640, 959])1是指单通道
                 # print(true_masks[0][64])
-                assert images.shape[1] == net.n_channels, \
-                    f'Network has been defined with {net.n_channels} input channels, ' \
-                    f'but loaded images have {images.shape[1]} channels. Please check that ' \
-                    'the images are loaded correctly.'
+                # assert images.shape[1] == net.n_channels, \
+                #     f'Network has been defined with {net.n_channels} input channels, ' \
+                #     f'but loaded images have {images.shape[1]} channels. Please check that ' \
+                #     'the images are loaded correctly.'
 
                 images = images.to(device=device, dtype=torch.float32)
                 true_masks = true_masks.to(device=device, dtype=torch.long)
 
                 with torch.cuda.amp.autocast(enabled=amp):
+                    print(images.shape)#[4, 3, 448, 448]
                     masks_pred = net(images)#核心处理,将图片输入到net中
                     # print(masks_pred.shape)#torch.Size([batch, classes, 高, 宽]),值有正有负，大概在[-5，5]左右
                     # print(np.unique(true_masks.cpu().data.numpy()))#torch.Size([1, 高, 宽]),值只有0，1
                     ###JiangShan
-                    if net.n_classes==1:#当n_classes=1
-                         # print(torch.sigmoid(masks_pred).shape)#[batch, classes, 高, 宽]
-                         # print(true_masks.shape)#[batch, 高, 宽]
-                         criterion=nn.BCELoss()#针对二分类的交叉熵
-                         loss = criterion(np.squeeze(torch.sigmoid(masks_pred)).float(), true_masks.float()) + \
-                               dice_loss(np.squeeze(torch.sigmoid(masks_pred)).float(),  #n_classes=1分类（二分类）归一,将值收敛到[0,1]
-                                           true_masks.float(),
-                                           multiclass=False)  # 把true_masks变成4维，增加n_classes维度和masks_pred对应
-                    else:
+
                          # print(F.softmax(masks_pred, dim=1).shape)#[batch, classes, 高, 宽]
                          # print(F.one_hot(true_masks, net.n_classes).permute(0, 3, 1, 2).shape)
-                         loss = criterion(masks_pred, true_masks) + \
-                               dice_loss(F.softmax(masks_pred, dim=1).float(),#对向量进行归一化,多个类加起来概率为1
-                                           F.one_hot(true_masks, net.n_classes).permute(0, 3, 1, 2).float(),
-                                           multiclass=True)#把true_masks变成4维，增加n_classes维度和masks_pred对应
+                    loss = criterion(masks_pred, true_masks) * 0.5 + \
+                           dice_loss(F.softmax(masks_pred, dim=1).float(),  # 对向量进行归一化,多个类加起来概率为1
+                                     F.one_hot(true_masks, net.num_classes).permute(0, 3, 1, 2).float(),
+                                     multiclass=True) * 0.5#把true_masks变成4维，增加n_classes维度和masks_pred对应
                     ########################
                 optimizer.zero_grad(set_to_none=True)
                 grad_scaler.scale(loss).backward()
@@ -204,11 +199,11 @@ def train_net(net,
                         experiment.log({
                             'learning rate': optimizer.param_groups[0]['lr'],
                             'validation loss': val_loss,
-                            'images': wandb.Image(images[0].cpu()),
-                            'masks': {
-                                'true': wandb.Image(true_masks[0].float().cpu()),
-                                'pred': wandb.Image(torch.softmax(masks_pred, dim=1).argmax(dim=1)[0].float().cpu()),
-                            },
+                            # 'images': wandb.Image(images[0].cpu()),#这里训练时会报错
+                            # 'masks': {#这里也可能报错
+                            #     'true': wandb.Image(true_masks[0].float().cpu()),
+                            #     'pred': wandb.Image(torch.softmax(masks_pred, dim=1).argmax(dim=1)[0].float().cpu()),
+                            # },
                             'step': global_step,
                             'epoch': epoch,
                             **histograms
@@ -242,7 +237,7 @@ def get_args():#传入参数
                         help='Learning rate', dest='lr')
     # parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
     ## 这里加载已经训练过的模型
-    parser.add_argument('--load', '-f', type=str, default='checkpoints/Resnet34/NewNeuralTransfer_L2=1e-6bias=0/checkpoint_epoch20.pth')#Jiang
+    parser.add_argument('--load', '-f', type=str, default='../checkpoints/TransUnet/Public_optim=RMSprop_L2=1e-6/checkpoint_epoch16.pth')#Jiang
     #例如./checkpoints_SegNet_crack/checkpoint_epoch20.pth
     parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
@@ -251,6 +246,11 @@ def get_args():#传入参数
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')#使用双线性上采样
     parser.add_argument('--classes', '-c', type=int, default=2, help='Number of classes')#设置图像一共有几个种类需要分割
     parser.add_argument('--Transfer', '-tr', type=bool, default=False, help='The Transfer learning')
+    # for TransUnet
+    parser.add_argument('--img_size', type=int, default=448, help='input patch size of network input')
+    parser.add_argument('--vit_name', type=str, default='R50-ViT-B_16', help='select one vit model')#decoder_channels = (256, 128, 64, 16)
+    parser.add_argument('--vit_patches_size', type=int, default=16, help='vit_patches_size, default is 16')
+    parser.add_argument('--n_skip', type=int, default=3, help='using number of skip-connect, default is num')
     #3，解析参数，ArgumentParser 通过 parse_args() 方法解析参数
     return parser.parse_args()#返回解析参数
 
@@ -271,16 +271,23 @@ if __name__ == '__main__':
     # net = UNet(n_channels=3, n_classes=args.classes, bilinear=args.bilinear)#通道数：PGB、每个像素要获取的概率、双线性
     # net = segNet_model.SegNet(n_channels=3, n_classes=args.classes)
     # net= networks.resnet34(pretrained=False)#初始化网络
-    net=resnet34(n_channels=3,n_classes=2,pretrained=False)#baseline
+    # net=resnet34(n_channels=3,n_classes=2,pretrained=False)#baseline
+    config_vit = CONFIGS_ViT_seg[args.vit_name]
+    config_vit.n_classes = args.classes  # 默认为2
+    config_vit.n_skip = args.n_skip
+    if args.vit_name.find('R50') != -1:
+        config_vit.patches.grid = (
+        int(args.img_size / args.vit_patches_size), int(args.img_size / args.vit_patches_size))
+    net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
     # net=DeepCrack(num_classes=args.classes)##默认input_channnel为3
 
-    logging.info(f'Network:\n'
-                 f'\t{net.n_channels} input channels\n'
-                 f'\t{net.n_classes} output channels (classes)\n')
+    # logging.info(f'Network:\n'
+    #              f'\t{net.n_channels} input channels\n'
+    #              f'\t{net.n_classes} output channels (classes)\n')
                  # f'\t{"Bilinear" if net.bilinear else "Transposed conv"} upscaling')##U-net独有
 
     if args.load:#加载预训练模型时
-        start_epoch = 21  # 设置开始训练时的第一个epoch
+        start_epoch = 17  # 设置开始训练时的第一个epoch
 
         net.load_state_dict(torch.load(args.load, map_location=device))
         logging.info(f'Model loaded from {args.load}')

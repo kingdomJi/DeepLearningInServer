@@ -220,7 +220,7 @@ class Discriminator(nn.Module):
         self.ngpu = ngpu
         self.main = nn.Sequential(
         # input is (nc) x 64 x 64
-        nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+        nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),#in_channels=nc=3,out_channels=ndf=64,kernel_size,stride,padding
         nn.LeakyReLU(0.2, inplace=True),
         # state size. (ndf) x 32 x 32
         nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
@@ -235,7 +235,7 @@ class Discriminator(nn.Module):
         nn.BatchNorm2d(ndf * 8),
         nn.LeakyReLU(0.2, inplace=True),
         # state size. (ndf*8) x 4 x 4
-        nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
+        nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),#1*1
         nn.Sigmoid()
         )
 
@@ -363,7 +363,7 @@ for epoch in range(num_epochs):
             # Since we just updated D, perform another forward pass of all-fake batch through D
         output = netD(fake).view(-1)
      # Calculate G's loss based on this output
-        errG = criterion(output, label)
+        errG = criterion(output, label)#计算预测结果和全真的距离
      # Calculate gradients for G
         errG.backward()
         D_G_z2 = output.mean().item()

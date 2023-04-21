@@ -38,6 +38,7 @@ class TestDataset(data.Dataset):#输入待预测图像和真实label的目录，
 
 
 
+
 if __name__ == '__main__':
     # input_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_dom'
     # true_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_label_seg'

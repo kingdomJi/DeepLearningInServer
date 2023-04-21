@@ -150,7 +150,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
                                        dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
-                                       dilate=replace_stride_with_dilation[2])
+                                       dilate=replace_stride_with_dilation[2])#512是输出通道数
 
 
 
@@ -168,7 +168,8 @@ class ResNet(nn.Module):
         # self.up3 = Up(256, 128 // factor, bilinear)
         # self.up4 = Up(128, 64, bilinear)
         self.outc = OutConv(64, n_classes)
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):#传入的block是类BasicBlock或。。，planes参数是“基准通道数，blocks是生成的block数量
+
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):#传入的block是类BasicBlock或。。，planes参数是“基准通道数(输出通道数)，blocks是生成的block数量
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
@@ -184,7 +185,7 @@ class ResNet(nn.Module):
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,#这里步长为2，会减低2倍特征图尺寸
                             self.base_width, previous_dilation, norm_layer))#以resnet34为例，这里是传入Basicblock的init函数参数
-        self.inplanes = planes * block.expansion #
+        self.inplanes = planes * block.expansion #更新输入通道数
         for _ in range(1, blocks):#生产的block数量取决于blocks参数值大小
             layers.append(block(self.inplanes, planes, groups=self.groups,#这里用默认步长为1，特征图尺寸不变
                                 base_width=self.base_width, dilation=self.dilation,

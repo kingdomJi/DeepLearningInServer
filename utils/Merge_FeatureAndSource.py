@@ -29,13 +29,23 @@ def colorful(img):
     # img.save(save_path)
     return img
 
-def Crop_sourceMap_WJS(img,mask):#这里把原图裁成和被输出的预测图一样大小的格式以进行merge
+def Crop_sourceMap_WJS_256(img,mask):#这里把原图裁成和被输出的预测图一样大小的格式以进行merge
     img_np=np.asarray(img)
     mask_np=np.asarray(mask)
     # print(img_np.shape[:,:,0],mask_np.shape[:,:])
     # if(img_np.shape[:,:,0]==mask_np.shape[:,:]):#当本身已经相等，不需要切割
     #     return img
     new_source= img_np[64:mask_np.shape[0]+64,64:mask_np.shape[1]+64]#高，宽
+    new_img=Image.fromarray(new_source)
+    return new_img#返回图像IMG格式
+
+def Crop_sourceMap_WJS_448(img,mask):#这里把原图裁成和被输出的预测图一样大小的格式以进行merge
+    img_np=np.asarray(img)
+    mask_np=np.asarray(mask)
+    # print(img_np.shape[:,:,0],mask_np.shape[:,:])
+    # if(img_np.shape[:,:,0]==mask_np.shape[:,:]):#当本身已经相等，不需要切割
+    #     return img
+    new_source= img_np[112:mask_np.shape[0]+112,112:mask_np.shape[1]+112]#高，宽
     new_img=Image.fromarray(new_source)
     return new_img#返回图像IMG格式
 
@@ -51,7 +61,7 @@ def Crop_sourceMap_LHS(img):#这里把原图裁成和被输出的预测图一样
 # new_source.save(path)
 ######################Jiang
 
-def new_merge(pred_dir,raw_dir,save_dir):
+def new_merge(pred_dir,raw_dir,save_dir):#这个加载时间更长,但是merge效果更好
     pre_mask = cv2.imread(pred_dir, cv2.IMREAD_GRAYSCALE)  # opencv读取图像，直接返回numpy.ndarray 对象(高,宽),BGR
     # print(np.unique(pre_mask))#[0,255]
     pre_mask[pre_mask == 255] = 1
@@ -85,8 +95,7 @@ def old_merge(pred_dir,raw_dir,save_dir):
     pre_mask[pre_mask == 127] = 1
     # print(np.unique(pre_mask))#黑色部分值为0
     mask_color = colorful(pre_mask)  # 输入图像(array类型),上色特征图的储藏路径,返回img类型
-    image1 = cv2.imread(raw_dir)  # 传入原始图（剪切）,
-    image1=PIL.Image.fromarray(image1)
+    image1 = Image.open(raw_dir)# 传入原始图（剪切）
     image1 = image1.convert('RGBA')#转四通道,不能存.jpg
     mask_color=mask_color.convert('RGBA')
     # print(mask_color.size)
@@ -103,12 +112,12 @@ if __name__=='__main__':
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_Aug4_withASPPIncreaseL2=1e-4bias=0\WJS_0.25_e42_merge.png"
     # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-8ByJiang_e43\WJS_half_e43.png"
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-8ByJiang_e43\WJS_half_e43_merge.png"
-    epoch=26
+    epoch=17
     name_LHS='LHS_e{}'.format(epoch)
     name1='WJS_e{}'.format(epoch)
     name2='WJS_half_e{}'.format(epoch)
     name3='WJS_25%_e{}'.format(epoch)
-    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_TransUnet_PublicAndkq6Aug4_L2=1e-6\\"+name1+'.png'
+    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_PublicAndKq6_448_L2=1e-6\\"+name1+'.png'
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyNewNeuralTransferAndAug4_resnet34L2=1e-6\\"+name2+'_merge.png'
     save_dir=pred_dir.split('.')[0]+'_merge.'+pred_dir.split('.')[1]
     print(save_dir)
@@ -120,7 +129,8 @@ if __name__=='__main__':
     #
     # raw_dir = ".././data/Cut_WJS_half.png"
     #
-    raw_dir = ".././data/Cut_WJS.png"
+    # raw_dir = ".././data/Cut_WJS.png"
+    raw_dir = ".././data/Cut_WJS_448.png"
     # raw_dir = ".././data/WJS_DoubleResolution_Cut.png"
     # raw_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_LHS.png"
 
@@ -130,7 +140,7 @@ if __name__=='__main__':
     ####################合并单张图片(特征图和原图)
     old_merge(pred_dir, raw_dir, save_dir)
     # new_merge(pred_dir, raw_dir, save_dir)
-    #######
+    ############################
     # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\DJ\DJI_20220731124015_0299_resizeResult_Open.png"
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\DJ\DJI_20220731124015_0299_resizeResult_Open_merge.png"
     # # raw_dir = ".././data/Cut_WJS_0.25.png"
@@ -158,12 +168,12 @@ if __name__=='__main__':
     #     image.save(save_dir+'/'+split[0]+'_Merge'+split[1])#存储合并图
 
     ###切割图片
-    # souce_img_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\WJS_0.25.png'
-    # souce_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\trainbyNewNeuralTransferAndAug4_resnet34L2=1e-6\WJS_0.25_e22.png'
-    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_WJS_0.25.png"
+    # souce_img_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\WJS.png'
+    # souce_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_PublicAndKq6_448_L2=1e-6\WJS_e12.png'
+    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_WJS_448.png"
     # souce_img=Image.open(souce_img_path).convert('RGB')
     # souce_mask=Image.open(souce_mask_path)
-    # new_img=Crop_sourceMap_WJS(souce_img,souce_mask)
+    # new_img=Crop_sourceMap_WJS_448(souce_img,souce_mask)
     # new_img.save(save_dir)
     ##################################Chen
     # for i,f in tqdm(enumerate(pred_paths)):
