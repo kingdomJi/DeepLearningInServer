@@ -1,3 +1,6 @@
+"""
+该脚本用来生成评价图像，需传入存储参数的cvs文件
+"""
 from sklearn.metrics import precision_recall_curve,auc
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +12,7 @@ import pandas as pd
 
 
 if __name__=='__main__':
-    data = pd.read_csv(r'E:\jiangshan\U-net\Pytorch-UNet\data\evaluate_demo\pred_results\test.csv')  # 读取评价参数
+    data = pd.read_csv(r'E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_NTPublicAndKq6_256_L2=1e-6\WJS_paches_evaluate\test.csv')  # 读取评价参数
     # print(data.shape)#[行数，列数]
     # data.values可以查看DataFrame里的数据值，返回的是一个数组。
     #读取到的数据返回一个DataFrame,类似excel，是一种二维表
@@ -40,24 +43,24 @@ if __name__=='__main__':
 
     #Iou曲线：
 
-
-
     #ROC曲线
-    roc_xdata= data.iloc[:,5]#FPR
-    roc_ydata= data.iloc[:,6]#TPR
-    fpr_list=data.values[:,5]
-    tpr_list=data.values[:,6]
-    plt.plot(roc_xdata, roc_ydata, 'bo-', label=u'', linewidth=1)
-    plt.title(u"ROC_curve", size=10)  # 设置表名为“表名”
-    plt.legend()
-    plt.xlabel(u'FPR', size=10)  # 设置x轴名为“x轴名”
-    plt.ylabel(u'TPR', size=10)  # 设置y轴名为“y轴名”
-    plt.show()
+    # roc_xdata= data.iloc[:,5]#FPR
+    # roc_ydata= data.iloc[:,6]#TPR
+    # fpr_list=data.values[:,5]
+    # tpr_list=data.values[:,6]
+    # plt.plot(roc_xdata, roc_ydata, 'bo-', label=u'', linewidth=1)
+    # plt.title(u"ROC_curve", size=10)  # 设置表名为“表名”
+    # plt.legend()
+    # plt.xlabel(u'FPR', size=10)  # 设置x轴名为“x轴名”
+    # plt.ylabel(u'TPR', size=10)  # 设置y轴名为“y轴名”
+    # plt.show()
     #auc计算
-    AUC = auc(fpr_list,tpr_list)  # auc方法计算横纵坐标构成曲线与轴间的面积
-    print('AUC:', AUC)
+    # AUC = auc(fpr_list,tpr_list)  # auc方法计算横纵坐标构成曲线与轴间的面积
+    # print('AUC:', AUC)
 
     #**F1值** = 准确率 * 召回率 * 2 / (准确率 + 召回率)
+
+
     #平衡点F1指P=R时的情况
 
 

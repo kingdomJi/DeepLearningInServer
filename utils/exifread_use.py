@@ -39,7 +39,7 @@ def img_RelativeAltitude(img_path):
     f = open(img_path, 'rb')
     xmp = exifread._get_xmp(f)  # f这个应该是读二进制(rb)数据，xmp里有相机角度信息
     xmp = xmp.decode('utf-8')  # 解码二进制
-    RelativeAltitude=
+    # RelativeAltitude=
     return xmp
 
 

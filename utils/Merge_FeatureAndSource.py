@@ -112,12 +112,12 @@ if __name__=='__main__':
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_Aug4_withASPPIncreaseL2=1e-4bias=0\WJS_0.25_e42_merge.png"
     # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-8ByJiang_e43\WJS_half_e43.png"
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyChen_Resnet34_aug4L2=1e-8ByJiang_e43\WJS_half_e43_merge.png"
-    epoch=17
+    epoch=25
     name_LHS='LHS_e{}'.format(epoch)
     name1='WJS_e{}'.format(epoch)
     name2='WJS_half_e{}'.format(epoch)
     name3='WJS_25%_e{}'.format(epoch)
-    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_PublicAndKq6_448_L2=1e-6\\"+name1+'.png'
+    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_NTPublicAndKq6_256_L2=1e-6\\"+name1+'.png'
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyNewNeuralTransferAndAug4_resnet34L2=1e-6\\"+name2+'_merge.png'
     save_dir=pred_dir.split('.')[0]+'_merge.'+pred_dir.split('.')[1]
     print(save_dir)
@@ -129,8 +129,8 @@ if __name__=='__main__':
     #
     # raw_dir = ".././data/Cut_WJS_half.png"
     #
-    # raw_dir = ".././data/Cut_WJS.png"
-    raw_dir = ".././data/Cut_WJS_448.png"
+    raw_dir = ".././data/Cut_WJS.png"
+    # raw_dir = ".././data/Cut_WJS_448.png"
     # raw_dir = ".././data/WJS_DoubleResolution_Cut.png"
     # raw_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_LHS.png"
 

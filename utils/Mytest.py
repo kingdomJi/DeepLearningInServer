@@ -36,11 +36,17 @@ class TestDataset(data.Dataset):#输入待预测图像和真实label的目录，
         return len(self.image_list)
 
 
-
+def png2png(input_path,save_path):
+    list_file=os.listdir(input_path)
+    for i in list_file:
+        mask = Image.open(input_path+'/'+i)
+        mask = np.asarray(mask)
+        cv2.imwrite(save_path+'/'+i, mask)
 
 
 if __name__ == '__main__':
-    # input_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_dom'
+    input_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\LHS\labels'
+    save_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\LHS\masks'
     # true_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\patches\kq6_label_seg'
     # image_dtaroot = input_path
     # label_dataroot = true_mask_path
@@ -54,9 +60,13 @@ if __name__ == '__main__':
     # csv_name = "test.csv"  # 保存PR曲线的数据
     # csv_path = pathroot+ '/'+ csv_name
     # print(r'{}'.format(csv_path))
-    checkpoint_Path = 'checkpoints/Resnet34/NeuralTransfer_L2=1e-6bias=0/'
-    list=checkpoint_Path.split('/')
-    print(list[2])
+    png2png(input_path,save_path)
+
+    # print(np.unique(mask))
+
+    # checkpoint_Path = 'checkpoints/Resnet34/NeuralTransfer_L2=1e-6bias=0/'
+    # list=checkpoint_Path.split('/')
+    # print(list[2])
 
 
 

@@ -196,17 +196,6 @@ def flip_pred(net,image):#切入predict_img中,数据增强用
 if __name__ == '__main__':
     args = get_args()
 
-    if os.path.splitext(args.input[0])[1]=='.txt':#
-        f=open(args.input[0])
-        line=f.readline()
-        in_files=[]#in_files是图片路径组成的列表
-        while line:
-            in_files.append(line.splitlines()[0])
-            line=f.readline()
-    else:
-        in_files = args.input#原版，返回一个字符串列表，列表元素个数取决于是输入的元素个数，原作者大概想当输入为多个图片时，
-            # 命令行输入的input参数为一个图片路径列表。比如用.txt保存所有输入图片的绝对路径，再用命令行调用该txt作为输入路径参数
-
     image_dtaroot=args.input[0]
     label_dataroot=args.true_mask[0]
     test_dataset = TestDataset(image_dtaroot, label_dataroot)  # 测试数据集

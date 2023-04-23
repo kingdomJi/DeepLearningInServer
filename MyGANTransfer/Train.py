@@ -40,7 +40,8 @@ def train_net(net,
               device,
               epochs: int = 5,#时期
               batch_size: int = 8,
-              learning_rate: float = 1e-4,#学习效率
+              learning_rate: float = 2e-4,#学习效率
+              learning_rate_D: float = 1e-4,
               val_percent: float = 0.1,#验证集占总图片的比例
               save_checkpoint: bool = True,#保存检查点
               img_scale: float = 1,#图像尺度
@@ -108,13 +109,28 @@ def train_net(net,
     ################################
 
     # Beta1 hyperparam for Adam optimizers
-    beta1 = 0.5
-    optimizerD = optim.Adam(net_D.parameters(), lr= 0.0003, betas=(beta1, 0.999))  # 这个是鉴别网络的优化器，尽可能鉴别准
 
+    optimizerD = optim.Adam(net_D.parameters(), lr= learning_rate_D, betas=(0.9, 0.99))  #lr= 0.0001 这个是鉴别网络的优化器，尽可能鉴别准
+    # optimizerD = optim.RMSprop(net_D.parameters(), lr=0.00005, weight_decay=1e-8, momentum=0.9)#JIANG
     optimizerG=optim.RMSprop([
         {'params':params_others_copy , 'weight_decay': 1e-6},
         {'params': params_bias_copy, 'weight_decay': 0}
     ], lr=learning_rate, momentum=0.9)
+
+    def lr_poly(base_lr, iter, max_iter, power):
+        return base_lr * ((1 - float(iter) / max_iter) ** (power))
+
+    def adjust_learning_rate(optimizer, i_iter, max_iter):
+        lr = lr_poly(learning_rate, i_iter, max_iter, 0.9)  # args.power=0.9
+        optimizer.param_groups[0]['lr'] = lr
+        if len(optimizer.param_groups) > 1:
+            optimizer.param_groups[1]['lr'] = lr * 10
+
+    def adjust_learning_rate_D(optimizer, i_iter, max_iter):
+        lr = lr_poly(learning_rate_D, i_iter, max_iter, 0.9)
+        optimizer.param_groups[0]['lr'] = lr
+        if len(optimizer.param_groups) > 1:
+            optimizer.param_groups[1]['lr'] = lr * 10
 
     # optimizer = optim.RMSprop([
     #     {'params':params_others_copy , 'weight_decay': 1e-6},
@@ -128,7 +144,7 @@ def train_net(net,
     # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',factor=0.1, patience=5)
     # 原版：goal: maximize Dice score 我改：loss的 min值不再下降时降低学习率
     # 学习率调整策略，监视loss的，patience个epoch的loss没降，他就会降低学习率,ReduceLROnPlateau可能不适合diceloss这种容易震荡的loss函数收敛
-    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizerG, T_max=50, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizerG, T_max=50, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
     #T_max决定总的训练epoch内学习率周期循环多少次,t_max*2/10=多少epoch一个周期
     # scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.8) #指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5,真不好乱用啊
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
@@ -147,9 +163,11 @@ def train_net(net,
     # 5. Begin training
     for epoch in range(1, epochs+1):
         net.train()
+        net_D.train()
         epoch_loss = 0
+        max_iter=epochs * len(train_loader)
         with tqdm(total=n_train, desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
-            for batch in train_loader:
+            for i,batch in enumerate(train_loader):
                 public_img = batch['public_img']
                 mydata_img = batch['mydata_img']
                 public_mask=batch['publicMask_img']
@@ -165,13 +183,15 @@ def train_net(net,
                 mydata_img = mydata_img.to(device=device, dtype=torch.float32)
                 public_mask=public_mask.to(device=device, dtype=torch.long)
 
+                net.zero_grad()
+                net_D.zero_grad()
+                optimizerG.zero_grad()  # 梯度清零
+                adjust_learning_rate(optimizerG, i_iter=epoch * len(train_loader) + i, max_iter=max_iter)#更新学习率
+                optimizerD.zero_grad()  # 梯度清零
+                adjust_learning_rate_D(optimizerD, i_iter=epoch*len(train_loader)+i,max_iter=max_iter)
                 # print(public_mask.shape)
                 with torch.cuda.amp.autocast(enabled=amp):#torch.cuda.amp.autocast() 是PyTorch中一种混合精度的技术，可在保持数值精度的情况下提高训练速度和减少显存占用。
                     #训练seg网络
-                    net.zero_grad()
-                    net_D.zero_grad()
-                    optimizerD.zero_grad(set_to_none=True)  # 梯度清零
-                    optimizerG.zero_grad(set_to_none=True)  # 梯度清零
                     # target_label = torch.ones(public_img.shape[0]).to(device)  # batch_size
                     # source_label = torch.zeros(mydata_img.shape[0]).to(device)
                     source_label=0
@@ -180,7 +200,7 @@ def train_net(net,
                     for param in net_D.parameters():
                         param.requires_grad = False
                     # print(public_img.shape)#[4, 3, 448, 448]
-                    public_pred = net(public_img).detach()#detach（）可以起到截流的作用,很重要
+                    public_pred = net(public_img)#
                     #detach可以起到截流的作用,当要训练多个net且多次反向传播操作时,用.detach(),detach_()将 tensor从创建它的 graph 中分离，把它作为叶子节点
                     # mydata_pred=net(mydata_img)
                     # print(public_pred.shape)#torch.Size([batch, classes, 高, 宽]),值有正有负，大概在[-5，5]左右
@@ -190,50 +210,56 @@ def train_net(net,
                            dice_loss(F.softmax(public_pred, dim=1).float(),  # 对向量进行归一化,多个类加起来概率为1
                                      F.one_hot(public_mask, net.num_classes).permute(0, 3, 1, 2).float(),
                                      multiclass=True) * 0.5#BCE做损失函数时要sigmoid，CE时不用
-                    loss_S.requires_grad_(True)
-                    grad_scaler.scale(loss_S).backward()  # 反向传播,retain_graph=True保证该缓存不会被覆盖
+                # print('loss_S:',loss_S)
+                loss_S.requires_grad_(True)
+                grad_scaler.scale(loss_S).backward()  # 反向传播,retain_graph=True保证该缓存不会被覆盖
+                # # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
+                # grad_scaler.step(optimizerG)  #
+                # grad_scaler.update()  # 更新
+                # print('label.shape:',target_label.shape)  #batch_size
+                mydata_pred = net(mydata_img)
+                # Classify all fake batch with D
+                mydata_pred=F.softmax(mydata_pred)
+                #####target
+                output_T = net_D(mydata_pred).view(-1)  # 这里输入地裂缝的预测图（decoder解码结果），判别地裂缝预测图的情况,output的size=batch_size
+                print("output_T:",output_T)#
+                loss_DIt_S = 0.001 * criterion_D(output_T,
+                                                 Variable(torch.FloatTensor(output_T.data.size()).fill_(source_label)).cuda())#减少目标域与源域的距离,训练seg网络
+                # loss_DIt_S = 0.001 * criterion_D(output_T,source_label)
+                print('loss_DIt_S:', loss_DIt_S)#尽可能减小该值,最后该值越小越好
+                loss_DIt_S.requires_grad_(True)
+                loss_DIt_S.backward()  # 反向传播,retain_graph=True保证该缓存不会被覆盖
+                # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
+
+                #训练鉴别器
+                for param in net_D.parameters():
+                    param.requires_grad = True
+                #Source
+                public_pred=public_pred.detach()#detach（）可以起到截流的作用,很重要,但要用对地方，否则会导致模型参数回传错误导致不收敛
+                public_pred=F.softmax(public_pred)#pred图输入辨别器前或计算损失函数前需要先sigmoid/softmax（多分类）
+                output_S = net_D(public_pred).view(-1) # 这里输入的是公共裂缝的预测图,net的输出展成一维
+                loss_DIs = 0.001 * criterion_D(output_S,
+                                               Variable(torch.FloatTensor(output_S.data.size()).fill_(source_label)).cuda())  # 源域与源域的距离
+                # loss_DIs = 0.001 * criterion_D(output_S,source_label)
+                print('loss_DIs:', loss_DIs)  #
+                loss_DIs.requires_grad_(True)
+                loss_DIs.backward()  # 反向传播
+
+                #Target
+                mydata_pred=mydata_pred.detach()
+                output_T = net_D(mydata_pred).view(-1)#重新写一遍，更新output_T
+                # print("output_T2:", output_T)
+                loss_DIt_D = 0.001 * criterion_D(output_T,
+                                                 Variable(torch.FloatTensor(output_T.data.size()).fill_(target_label)).cuda())#训练鉴别器识别正确的能力
+                # loss_DIt_D = 0.001 * criterion_D(output_T,target_label)
+                print('loss_DIt_D:',loss_DIt_D)#尽可能让该值保持一个较大的程度，让辨别器难以辨别输出的是哪个
+                loss_DIt_D.requires_grad_(True)
+                loss_DIt_D.backward()  # 反向传播
+
                     # # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
-                    # grad_scaler.step(optimizerG)  #
-                    # grad_scaler.update()  # 更新
-                    # print('label.shape:',target_label.shape)  #batch_size
-                    mydata_pred = net(mydata_img)
-                    # Classify all fake batch with D
-                    mydata_pred=F.softmax(mydata_pred)
-                    output_T = net_D(mydata_pred).view(-1).detach()  # 这里输入地裂缝的预测图（decoder解码结果），判别地裂缝预测图的情况,output的size=batch_size
-                    # Calculate D's loss on the all-fake batch
-                    loss_DIt_S = 0.001 * criterion_D(output_T,
-                                                     Variable(torch.FloatTensor(output_T.data.size()).fill_(source_label)).cuda())#减少目标域与假的距离,训练seg网络
-
-                    print('loss_DIt_S:', loss_DIt_S)
-                    loss_DIt_S.requires_grad_(True)
-                    grad_scaler.scale(loss_DIt_S).backward()  # 反向传播,retain_graph=True保证该缓存不会被覆盖
-                    # # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
-
-                    #训练鉴别器
-                    for param in net_D.parameters():
-                        param.requires_grad = True
-                    #Source
-                    public_pred=F.softmax(public_pred)#pred图输入辨别器前或计算损失函数前需要先sigmoid/softmax（多分类）
-                    output_S = net_D(public_pred).view(-1).detach() # 这里输入的是公共裂缝的预测图,net的输出展成一维
-                    loss_DIs = 0.001 * criterion_D(output_S,
-                                                   Variable(torch.FloatTensor(output_S.data.size()).fill_(source_label)).cuda())  # public与source_label的距离
-                    print('loss_DIs:', loss_DIs)  # 结果是尽可能让这个loss大,也就是让鉴别器无法分辨源域还是目标域
-                    loss_DIs.requires_grad_(True)
-
-                    grad_scaler.scale(loss_DIs).backward()  # 反向传播
-
-                    #Target
-
-                    loss_DIt_D = 0.001 * criterion_D(output_T,
-                                                     Variable(torch.FloatTensor(output_T.data.size()).fill_(target_label)).cuda())#训练鉴别器识别正确的能力
-
-                    print('loss_DIt_D:',loss_DIt_D)#结果是尽可能让这个loss大,也就是让鉴别器无法分辨源域还是目标域
-                    loss_DIt_D.requires_grad_(True)
-                    grad_scaler.scale(loss_DIt_D).backward()  # 反向传播
-                    # # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
-                    grad_scaler.step(optimizerG)  #
-                    grad_scaler.step(optimizerD)  #
-                    grad_scaler.update()  # 更新
+                grad_scaler.step(optimizerG)  #
+                grad_scaler.step(optimizerD)  #
+                grad_scaler.update()  # 更新
                     ############################
 
                 ######以下为根据原版改动的
@@ -291,6 +317,11 @@ def train_net(net,
             torch.save(net.state_dict(), str(dir_checkpoint / 'checkpoint_epoch{}.pth'.format(epoch)))
             logging.info(f'Checkpoint {epoch} saved!')
 
+            ####save D
+            Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
+            torch.save(net_D.state_dict(), str(dir_checkpoint / 'checkpoint_D_epoch{}.pth'.format(epoch)))
+            logging.info(f'Checkpoint_D {epoch} saved!')
+
 
 def get_args():#传入参数
     #1.创建解析器，ArgumentParser 对象包含将命令行解析成 Python 数据类型所需的全部信息
@@ -310,8 +341,10 @@ def get_args():#传入参数
     # dest - 被添加到parse_args()所返回对象上的属性名。
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=100, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4,
+    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=2.5e-4,
                         help='Learning rate', dest='lr')
+    parser.add_argument('--learning-rate_D', '-ld', metavar='LRD', type=float, default=1e-4,
+                        help='Learning rate of D', dest='lrD')
     parser.add_argument('--load', '-f', type=str, default='../checkpoints/TransUnet/NewTransPublic_optim=RMSprop_L2=1e-6/checkpoint_epoch91.pth')#加载已经训练过的模型
     #例如./checkpoints_SegNet_crack/checkpoint_epoch20.pth
     parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the public_img')
@@ -360,7 +393,7 @@ if __name__ == '__main__':
 
     ngpu = 1
     net_D=MyDiscriminator.Discriminator(ngpu).to(device)
-    net_D.apply(MyDiscriminator.weights_init)
+    # net_D.apply(MyDiscriminator.weights_init)
 
     # net=DeepCrack(n_channels=3,n_classes=args.classes)##默认input_channnel为3
 
@@ -380,6 +413,7 @@ if __name__ == '__main__':
                   epochs=args.epochs,
                   batch_size=args.batch_size,
                   learning_rate=args.lr,
+                  learning_rate_D=args.lrD,
                   device=device,
                   img_scale=args.scale,
                   val_percent=args.val / 100,
