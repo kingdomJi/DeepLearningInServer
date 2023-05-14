@@ -29,7 +29,8 @@ def colorful(img):
     # img.save(save_path)
     return img
 
-def Crop_sourceMap_WJS_256(img,mask):#这里把原图裁成和被输出的预测图一样大小的格式以进行merge
+
+def Crop_sourceMap_256(img,mask):#这里把原图裁成和被输出的预测图一样大小的格式以进行merge
     img_np=np.asarray(img)
     mask_np=np.asarray(mask)
     # print(img_np.shape[:,:,0],mask_np.shape[:,:])
@@ -39,7 +40,7 @@ def Crop_sourceMap_WJS_256(img,mask):#这里把原图裁成和被输出的预测
     new_img=Image.fromarray(new_source)
     return new_img#返回图像IMG格式
 
-def Crop_sourceMap_WJS_448(img,mask):#这里把原图裁成和被输出的预测图一样大小的格式以进行merge
+def Crop_sourceMap_448(img,mask):#这里把原图裁成和被输出的预测图一样大小的格式以进行merge
     img_np=np.asarray(img)
     mask_np=np.asarray(mask)
     # print(img_np.shape[:,:,0],mask_np.shape[:,:])
@@ -117,7 +118,9 @@ if __name__=='__main__':
     name1='WJS_e{}'.format(epoch)
     name2='WJS_half_e{}'.format(epoch)
     name3='WJS_25%_e{}'.format(epoch)
-    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_NTPublicAndKq6_256_L2=1e-6\\"+name1+'.png'
+    name_kq6send='kq6send_e{}'.format(epoch)
+    pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainby_wholeNTPTokq6Style_UGAITe92_TransUnet\\"+name1+'.png'
+    # pred_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainby_NTPToWJSStyle_UGAITnewe33_TransUnet\\" + name_LHS + '.png'
     # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\trainbyNewNeuralTransferAndAug4_resnet34L2=1e-6\\"+name2+'_merge.png'
     save_dir=pred_dir.split('.')[0]+'_merge.'+pred_dir.split('.')[1]
     print(save_dir)
@@ -130,6 +133,7 @@ if __name__=='__main__':
     # raw_dir = ".././data/Cut_WJS_half.png"
     #
     raw_dir = ".././data/Cut_WJS.png"
+    # raw_dir = ".././data/Cut_kq6_send_256.png"
     # raw_dir = ".././data/Cut_WJS_448.png"
     # raw_dir = ".././data/WJS_DoubleResolution_Cut.png"
     # raw_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_LHS.png"
@@ -168,12 +172,12 @@ if __name__=='__main__':
     #     image.save(save_dir+'/'+split[0]+'_Merge'+split[1])#存储合并图
 
     ###切割图片
-    # souce_img_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\WJS.png'
-    # souce_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_PublicAndKq6_448_L2=1e-6\WJS_e12.png'
-    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_WJS_448.png"
+    # souce_img_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\kq6_send.png'
+    # souce_mask_path=r'E:\jiangshan\U-net\Pytorch-UNet\data\trainby_wholeNTPTokq13Style_UGAITe100_TransUnet\kq6_send_e16.png'
+    # save_dir = r"E:\jiangshan\U-net\Pytorch-UNet\data\Cut_kq6_send_256.png"
     # souce_img=Image.open(souce_img_path).convert('RGB')
     # souce_mask=Image.open(souce_mask_path)
-    # new_img=Crop_sourceMap_WJS_448(souce_img,souce_mask)
+    # new_img=Crop_sourceMap_256(souce_img,souce_mask)
     # new_img.save(save_dir)
     ##################################Chen
     # for i,f in tqdm(enumerate(pred_paths)):

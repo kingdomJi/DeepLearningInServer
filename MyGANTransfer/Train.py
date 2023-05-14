@@ -1,3 +1,8 @@
+"""
+该脚本采用域自适应迁移学习来应对样本没有标签的情况
+"""
+
+
 import argparse
 import logging
 from pathlib import Path
@@ -18,19 +23,24 @@ from TransUnet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from evaluate_T import evaluate_J
 from torch.autograd import Variable
 import MyDiscriminator
-dir_public = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\NewTransfer_img\\')
-dir_public_mask=Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
+# dir_public = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\publicAndkq6\public\\')
+# dir_public = Path(r'..\data\data_Chen_new\patches\kq6_dom\\')
+dir_public = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\UGATIT_publicToWJS_e33\\')
+# dir_public_mask=Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\publicAndkq6\public_mask\\')
+# dir_public_mask=Path(r'..\data\data_Chen_new\patches\kq6_label_seg\\')
+dir_public_mask=Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\UGATIT_publicToWJS_e33_mask\\')
 # dir_public = Path(r'..\data\data_Chen_new\patches\kq6_dom\\')
 # dir_public = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
 # dir_public=Path(r'..\data\crack_segmentation_dataset\images\\')
 # dir_public=Path(r'.\data\LHS\images\\')
-dir_mydata = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\kq6\\')
+# dir_mydata = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\publicAndkq6\kq6_448\\')
+dir_mydata = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\chenSum_256\\')
+
 # dir_mask = Path(r'..\data\data_Chen_new\patches\kq6_label_seg\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mydata = Path(r'..\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
-# dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-checkpoint_Path='../checkpoints/TransUnetTransfer/NTPublicAndKq6_size=256_optim=RMSprop_L2=1e-6/'
+checkpoint_Path='../checkpoints/TransUnet/UGATITNTPublicToWJS_AdaptToChenSumWithoutPretrain_size=256_optim=RMSprop_L2=1e-6/'
 dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
@@ -58,7 +68,7 @@ def train_net(net,
     # train_set= random_split(dataset, [n_train], generator=torch.Generator().manual_seed(0))
         #torch.Generator().manual_seed：设置CPU生成随机数的种子。
     # 3. Create data loaders
-    loader_args = dict(batch_size=batch_size, num_workers=0, pin_memory=False)
+    loader_args = dict(batch_size=batch_size, num_workers=0, pin_memory=True)
     #加载器参数是字典形式，包含栅格尺寸、工作者数（关系到内存）、是否设置锁页内存
     train_loader = DataLoader(dataset, shuffle=True, **loader_args)
     #训练集加载器，传入训练集，打乱数据，**loader_args指将字典作为参数传入，没有传入的参数按照源代码构造器中的默认值算。
@@ -66,7 +76,7 @@ def train_net(net,
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
     list_chP = checkpoint_Path.split('/')
-    experiment = wandb.init(project='TransUnetTransfer', resume='allow', anonymous='must',name='{}'.format(list_chP[2]+'/'+list_chP[3])+'训练')#每次训练更改
+    experiment = wandb.init(project='TransUnetAdapt', resume='allow', anonymous='must',name='{}'.format(list_chP[2]+'/'+list_chP[3])+'训练')#每次训练更改
     # experiment = wandb.init(project='DeepCrack', resume='allow', anonymous='must',
     #                         name='Chen_Aug5_2_Seg_e100_increaseL2=1e-5训练')
     # experiment = wandb.init(project='Unet', resume='allow', anonymous='must', name='Chen_Aug6_Seg_e100训练')
@@ -144,7 +154,8 @@ def train_net(net,
     # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',factor=0.1, patience=5)
     # 原版：goal: maximize Dice score 我改：loss的 min值不再下降时降低学习率
     # 学习率调整策略，监视loss的，patience个epoch的loss没降，他就会降低学习率,ReduceLROnPlateau可能不适合diceloss这种容易震荡的loss函数收敛
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizerG, T_max=50, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
+    scheduler_G = optim.lr_scheduler.CosineAnnealingLR(optimizerG, T_max=50, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
+    scheduler_D = optim.lr_scheduler.CosineAnnealingLR(optimizerD, T_max=50, eta_min=0, last_epoch=- 1, verbose=False)#余弦退火
     #T_max决定总的训练epoch内学习率周期循环多少次,t_max*2/10=多少epoch一个周期
     # scheduler = optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.8) #指数衰减策略，gamma是衰减因子，每个epoch的lr*0.5,真不好乱用啊
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
@@ -222,11 +233,11 @@ def train_net(net,
                 mydata_pred=F.softmax(mydata_pred)
                 #####target
                 output_T = net_D(mydata_pred).view(-1)  # 这里输入地裂缝的预测图（decoder解码结果），判别地裂缝预测图的情况,output的size=batch_size
-                print("output_T:",output_T)#
+                # print("output_T:",output_T)#
                 loss_DIt_S = 0.001 * criterion_D(output_T,
                                                  Variable(torch.FloatTensor(output_T.data.size()).fill_(source_label)).cuda())#减少目标域与源域的距离,训练seg网络
                 # loss_DIt_S = 0.001 * criterion_D(output_T,source_label)
-                print('loss_DIt_S:', loss_DIt_S)#尽可能减小该值,最后该值越小越好
+                print('目标域与源域的在鉴别器上的距离loss_DIt_S:', loss_DIt_S)#尽可能减小该值,最后该值越小越好
                 loss_DIt_S.requires_grad_(True)
                 loss_DIt_S.backward()  # 反向传播,retain_graph=True保证该缓存不会被覆盖
                 # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
@@ -241,7 +252,7 @@ def train_net(net,
                 loss_DIs = 0.001 * criterion_D(output_S,
                                                Variable(torch.FloatTensor(output_S.data.size()).fill_(source_label)).cuda())  # 源域与源域的距离
                 # loss_DIs = 0.001 * criterion_D(output_S,source_label)
-                print('loss_DIs:', loss_DIs)  #
+                print('源域在鉴别器上的损失loss_DIs:', loss_DIs)  #
                 loss_DIs.requires_grad_(True)
                 loss_DIs.backward()  # 反向传播
 
@@ -252,7 +263,7 @@ def train_net(net,
                 loss_DIt_D = 0.001 * criterion_D(output_T,
                                                  Variable(torch.FloatTensor(output_T.data.size()).fill_(target_label)).cuda())#训练鉴别器识别正确的能力
                 # loss_DIt_D = 0.001 * criterion_D(output_T,target_label)
-                print('loss_DIt_D:',loss_DIt_D)#尽可能让该值保持一个较大的程度，让辨别器难以辨别输出的是哪个
+                print('目标域在鉴别器上的损失loss_DIt_D:',loss_DIt_D)#尽可能让该值保持一个较大的程度，让辨别器难以辨别输出的是哪个
                 loss_DIt_D.requires_grad_(True)
                 loss_DIt_D.backward()  # 反向传播
 
@@ -268,6 +279,7 @@ def train_net(net,
                 # # # optimizer放在backward后面用求出的梯度进行参数更行，记住step之前要进行optimizer.zero_grad()
                 # grad_scaler.step(optimizerG)  #
                 # grad_scaler.update()  # 更新
+                # scheduler.step()
 
                 pbar.update(public_img.shape[0])
                 global_step += 1
@@ -281,9 +293,9 @@ def train_net(net,
 
                 ########################
                 # Evaluation round，评估阶段
-                # division_step = (n_train // (10 * batch_size))
-                # if division_step > 0:
-                #     if global_step % division_step == 0:
+                division_step = (n_train // (10 * batch_size))
+                if division_step > 0:
+                    if global_step % division_step == 0:
                 #         histograms = {}
                 #         for tag, value in net.named_parameters():
                 #             tag = tag.replace('/', '.')
@@ -294,7 +306,8 @@ def train_net(net,
                 #         #val_score=evaluate(net, val_loader, device)#原版，evaluate返回验证集上的均值dice_score
                 #         # scheduler.step(val_score)#原版
                 #         val_loss = evaluate_J(net, val_loader, device)
-                #         scheduler.step()#监测(val_loss)，当val_loss几个epoch后不再降低，则降低学习率,针对optim.lr_scheduler.ReduceLROnPlateau
+                        scheduler_G.step()#监测(val_loss)，当val_loss几个epoch后不再降低，则降低学习率,针对optim.lr_scheduler.ReduceLROnPlateau
+                        scheduler_D.step()
                 #         #只有用了optimizer.step()，模型才会更新，而scheduler.step()是对lr进行调整
                 #         #############
                 #
@@ -340,13 +353,15 @@ def get_args():#传入参数
     # metavar - 在使用方法消息中使用的参数值示例。
     # dest - 被添加到parse_args()所返回对象上的属性名。
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=2.5e-4,
+    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=8, help='Batch size')
+    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4,
                         help='Learning rate', dest='lr')
     parser.add_argument('--learning-rate_D', '-ld', metavar='LRD', type=float, default=1e-4,
                         help='Learning rate of D', dest='lrD')
-    parser.add_argument('--load', '-f', type=str, default='../checkpoints/TransUnet/NewTransPublic_optim=RMSprop_L2=1e-6/checkpoint_epoch91.pth')#加载已经训练过的模型
-    #例如./checkpoints_SegNet_crack/checkpoint_epoch20.pth
+    parser.add_argument('--load', '-f', type=str, default=False)#加载已经训练过的模型
+    #'../checkpoints/TransUnet/kq6_optim=RMSprop_L2=1e-6/checkpoint_epoch100.pth'
+    #checkpoints/TransUnet/Public_size=448_optim=RMSprop_L2=1e-6/checkpoint_epoch74.pth
+    #../checkpoints/TransUnet/NewTransPublic_optim=RMSprop_L2=1e-6/checkpoint_epoch91.pth
     parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the public_img')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
@@ -407,6 +422,7 @@ if __name__ == '__main__':
         logging.info(f'Model loaded from {args.load}')
 
     net.to(device=device)
+    net_D.to(device=device)
     try:
         train_net(net=net,#正式训练网络，传入参数，net选用U-net或其他,部分参数从args中获取
                   net_D=net_D,

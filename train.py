@@ -19,17 +19,21 @@ from TransUnet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from evaluate import evaluate_J
 
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug9_seg\NewTransPublicAndkq6_img\\')
-dir_img = Path(r'.\data\data_Chen_new\patches\kq6_dom\\')
+# dir_img = Path(r'.\data\data_Chen_new\patches\kq6_dom\\')
+dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\UGATIT_publicToWJS_e33\\')
+# dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_resultToWJS_StyleVGG\\')
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\aug9_seg\NewTransPublicAndkq6_seg\\')
-dir_mask = Path(r'.\data\data_Chen_new\patches\kq6_label_seg\\')
+# dir_mask = Path(r'.\data\data_Chen_new\patches\kq6_label_seg\\')
+# dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
+dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\UGATIT_publicToWJS_e33_mask\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-checkpoint_Path='checkpoints/Resnet34/kq6_optim=optim.RMSprop_L2=1e-6/'
+checkpoint_Path='checkpoints/Resnet34/Transfer_freezeEncoder[1-3]_NTPublicToWJSe33_optim=RMSprop_L2=1e-6//'
 dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
@@ -87,11 +91,14 @@ def train_net(net,
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
     #设定优化器、损失函数、学习速率调度器、AMP的损耗缩放
     #######Jiang
-    for name, value in net.named_parameters():  # 针对ResNet
+    # for name, value in net.named_parameters():  # 针对ResNet，冻结前3层
+    #     matchObj = re.match('layer[1,2,3]|bn|conv', name)  # 设置冻结编码层参数
+    #     if matchObj:
+    #         value.requires_grad = False  # requires_grad 为 true 则进行更新，为 False 时权重和偏置不进行更新。
+    for name, value in net.named_parameters():
         matchObj = re.match(r'.*bias', name)  # 设置
         if matchObj:
             value.requires_grad = False  # requires_grad
-
     params_bias = filter(lambda p: p.requires_grad == False, net.parameters())  # 筛选bias
     params_others = filter(lambda p: p.requires_grad, net.parameters())  # 筛选其他
     params_bias_copy = []#存bias
@@ -100,7 +107,7 @@ def train_net(net,
         params_bias_copy.append(value)
     for value in params_others:
         params_others_copy.append(value)
-    for name, value in net.named_parameters():  # 针对ResNet
+    for name, value in net.named_parameters():
         matchObj = re.match(r'.*bias', name)  # 设置
         if matchObj:
             value.requires_grad = True  #改回来
@@ -248,7 +255,7 @@ def get_args():#传入参数
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=4, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4,
                         help='Learning rate', dest='lr')
-    parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')#加载已经训练过的模型
+    parser.add_argument('--load', '-f', type=str, default='checkpoints/Resnet34/Chen_kq6_dom_e100/checkpoint_epoch100.pth')#加载已经训练过的模型
     #例如./checkpoints_SegNet_crack/checkpoint_epoch20.pth
     parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,

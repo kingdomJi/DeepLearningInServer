@@ -126,7 +126,7 @@ class Discriminator_256(nn.Module):
 
     def forward(self, input):
         return self.main(input)
-class Discriminator(nn.Module):
+class Discriminator(nn.Module):#原版
     def __init__(self, ngpu):
         super(Discriminator, self).__init__()
         self.ngpu = ngpu

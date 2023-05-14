@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 import re
 import numpy as np
-
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -17,24 +17,24 @@ from TransUnet.networks.vit_seg_modeling import VisionTransformer as ViT_seg
 from TransUnet.networks.vit_seg_modeling import CONFIGS as CONFIGS_ViT_seg
 from evaluate_T import evaluate_J
 
-dir_img = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\NewTransfer_img\\')
+dir_img = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\UGATIT_imgs_stylesSum\\')
 # dir_img = Path(r'..\data\data_Chen_new\patches\kq6_dom\\')
 # dir_img = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result\\')
 # dir_img=Path(r'.\data\crack_segmentation_dataset\images\\')
 # dir_img=Path(r'.\data\LHS\images\\')
-dir_mask = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
+dir_mask = Path(r'..\data\data_Chen_new\augmentation_Jiang\patches\UGATIT_masks_stylesSum\\')
 # dir_mask = Path(r'..\data\data_Chen_new\patches\kq6_label_seg\\')
 # dir_mask = Path(r'.\data\data_Chen_new\augmentation_Jiang\patches\Transfer_mask\\')
 # dir_mask = Path(r'.\data\crack_segmentation_dataset\masks\\')
 # dir_mask = Path(r'.\data\LHS\labels\\')
 # dir_checkpoint = Path('checkpoints/U-net/data_Chen_new_patchesSeg_kq6_dom_e100_TransferByPublic')
-checkpoint_Path='../checkpoints/TransUnet/NewTransPublic_optim=RMSprop_L2=1e-6/'
+checkpoint_Path='../checkpoints/TransUnet/UGATIT_WholePToSumStyles_optim=RMSprop_L2=1e-6/'
 dir_checkpoint = Path(checkpoint_Path)#这里基于使用的网络
 # dir_checkpoint = Path('./checkpoints/test/')#这里基于使用的网络
 
 def train_net(net,
               device,
-              epochs: int = 5,#时期
+              epochs: int = 50,#时期
               batch_size: int = 8,
               learning_rate: float = 1e-4,#学习效率
               val_percent: float = 0.1,#验证集占总图片的比例
@@ -54,16 +54,17 @@ def train_net(net,
         #基于训练集和验证集的个数，随机分割数据集，manual：手动
         #torch.Generator().manual_seed：设置CPU生成随机数的种子。
     # 3. Create data loaders
-    loader_args = dict(batch_size=batch_size, num_workers=0, pin_memory=False)
+    loader_args = dict(batch_size=batch_size, num_workers=8, pin_memory=True)
     #加载器参数是字典形式，包含栅格尺寸、工作者数（关系到内存）、是否设置锁页内存
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     #训练集加载器，传入训练集，打乱数据，**loader_args指将字典作为参数传入，没有传入的参数按照源代码构造器中的默认值算。
-    val_loader = DataLoader(val_set, shuffle=False, drop_last=True, **loader_args)
+    val_loader = DataLoader(val_set, shuffle=False, drop_last=True,batch_size=batch_size, num_workers=16, pin_memory=True)
+    #val_loader参数更改，不与trainloder保持一致，以免占用过多时间
     #验证集加载器，传入验证集，不打乱数据，。。。
     # (Initialize logging)初始化日志
     # experiment = wandb.init(project='Test', resume='allow', anonymous='must', name='test训练')
     list_chP = checkpoint_Path.split('/')
-    experiment = wandb.init(project='TransUnet', resume='allow', anonymous='must',name='{}'.format(list_chP[1]+'/'+list_chP[2])+'训练')#每次训练更改
+    experiment = wandb.init(project=list_chP[2], resume='allow', anonymous='must',name='{}'.format(list_chP[2]+'/'+list_chP[3])+'训练')#每次训练更改
     # experiment = wandb.init(project='DeepCrack', resume='allow', anonymous='must',
     #                         name='Chen_Aug5_2_Seg_e100_increaseL2=1e-5训练')
     # experiment = wandb.init(project='Unet', resume='allow', anonymous='must', name='Chen_Aug6_Seg_e100训练')
@@ -86,7 +87,7 @@ def train_net(net,
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
     #设定优化器、损失函数、学习速率调度器、AMP的损耗缩放
     #######Jiang
-    for name, value in net.named_parameters():  # 针对ResNet
+    for name, value in net.named_parameters():  #
         matchObj = re.match(r'.*bias', name)  # 设置
         if matchObj:
             value.requires_grad = False  # requires_grad
@@ -99,7 +100,7 @@ def train_net(net,
         params_bias_copy.append(value)
     for value in params_others:
         params_others_copy.append(value)
-    for name, value in net.named_parameters():  # 针对ResNet
+    for name, value in net.named_parameters():  #
         matchObj = re.match(r'.*bias', name)  # 设置
         if matchObj:
             value.requires_grad = True  #改回来
@@ -133,6 +134,7 @@ def train_net(net,
 
     # 5. Begin training
     for epoch in range(1, epochs+1):
+        tick = time.time()
         net.train()
         epoch_loss = 0
         with tqdm(total=n_train, desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
@@ -211,8 +213,10 @@ def train_net(net,
                             'epoch': epoch,
                             **histograms
                         })
-
-        if save_checkpoint:
+        tock = time.time()
+        print('one epoch processing time: {}'.format(tock - tick))
+        # print('one epoch processing time: {}min'.format((tock - tick))/60)
+        if save_checkpoint: #and epoch%5==0:#间隔5一存
             Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
             torch.save(net.state_dict(), str(dir_checkpoint / 'checkpoint_epoch{}.pth'.format(epoch)))
             logging.info(f'Checkpoint {epoch} saved!')
@@ -235,13 +239,13 @@ def get_args():#传入参数
     # metavar - 在使用方法消息中使用的参数值示例。
     # dest - 被添加到parse_args()所返回对象上的属性名。
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=4, help='Batch size')
+    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=12, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-4,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')#加载已经训练过的模型
     #例如./checkpoints_SegNet_crack/checkpoint_epoch20.pth
     parser.add_argument('--scale', '-s', type=float, default=1, help='Downscaling factor of the images')
-    parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
+    parser.add_argument('--validation', '-v', dest='val', type=float, default=3.0,
                         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
     parser.add_argument('--bilinear', action='store_true', default=False, help='Use bilinear upsampling')#使用双线性上采样

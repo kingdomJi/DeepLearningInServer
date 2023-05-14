@@ -25,6 +25,7 @@ from utils.CropAndConnect import CropAndConnect
 from utils.data_loading import BasicDataset
 from unet import UNet
 from utils.utils import plot_img_and_mask
+from utils.dice_score import multiclass_dice_coeff, dice_coeff
 from sklearn.metrics import precision_recall_curve
 import matplotlib.pyplot as plt
 from MyResnet import ResNet_baseLine,ResnetWithASPP_model,ResNetWithASPP_FPN,ResUNet
@@ -70,7 +71,7 @@ def predict_img(net,
         #classes维度下，只有一个为1，其他全为0，对应多分类中每个像素只对应一个类别
 def get_args():
     parser = argparse.ArgumentParser(description='Predict masks from input images')
-    parser.add_argument('--model', '-m', default='./checkpoints/TransUnetTransfer/NTPublicAndKq6_size=256_optim=RMSprop_L2=1e-6/checkpoint_epoch25.pth', metavar='FILE',
+    parser.add_argument('--model', '-m', default='./checkpoints/TransUnet/kq6_optim=RMSprop_L2=1e-6/checkpoint_epoch20.pth', metavar='FILE',
     #parser.add_argument('--model', '-m',default='./checkpoints_UNet_Chen_Unenhance_e40/checkpoint_epoch40.pth',metavar='FILE',
                         help='Specify the file in which the model is stored')
     parser.add_argument('--input', '-i', metavar='INPUT', nargs='+', help='Filenames of input images', required=True)
@@ -334,7 +335,6 @@ if __name__ == '__main__':
                 logging.info(f'Mask saved to {out_filename}')
             if args.viz:
                 plot_img_and_mask(img, new_mask)
-
         tp = np.sum([v[0] for v in statistics])
         fp = np.sum([v[1] for v in statistics])
         fn = np.sum([v[2] for v in statistics])
@@ -348,9 +348,13 @@ if __name__ == '__main__':
         recall = tp / (tp + fn + eps)
         # calculate f-score（F1值）
         f = 2 * precision * recall / (precision + recall + eps)
+
         # calculate iou
         iou = tp / (tp + fp + fn + eps)
-        final_accuracy_all.append([thresh, precision, recall, f, iou, FPR, TPR])
+        #calculate dice,dice coefficient=(2TP)/(2TP+FP+FN)
+        dice=2*tp/(2*tp+fp+fn)
+
+        final_accuracy_all.append([thresh, precision, recall, f, iou, dice,FPR, TPR])
         print("precision: {}, recall: {}, f 得分： {}, IoU: {}".format(precision, recall, f, iou))
     # 将各种评价指标输出成文件
     csv_name = "test.csv"  # 保存PR曲线的数据
@@ -358,7 +362,7 @@ if __name__ == '__main__':
     save_evaluate(csv_path, final_accuracy_all)  # 保存格式【阈值，precision, recall,f,Iou】
 
 # 使用范例：python TransUnet/evaluate_pred.py -i ./data/WJS_cracks/images_256 -o ./data/train_TransUnetTransfer_NTPublicAndKq6_256_L2=1e-6/WJS_paches_evaluate -tm ./data/WJS_cracks/masks
-
+#python TransUnet/evaluate_pred.py -i ./data/WJS_cracks/images_256 -tm ./data/WJS_cracks/masks -o ./data/trainby_NTPToWJSStyle_UGAITnewe33_TransUnet/WJS_e14_paches_evaluate
 
 
 

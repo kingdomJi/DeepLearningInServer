@@ -3,16 +3,50 @@
 """
 from sklearn.metrics import precision_recall_curve,auc
 import matplotlib.pyplot as plt
+import torch
+from torch import Tensor
 import numpy as np
 from PIL import Image
 import csv
 import pandas as pd
 
+def dice_coeff(input: Tensor, target: Tensor, reduce_batch_first: bool = False, epsilon=1e-6):
+    # Average of Dice coefficient for all batches, or for a single mask
+    assert input.size() == target.size()
+    if input.dim() == 2 and reduce_batch_first:
+        raise ValueError(f'Dice: asked to reduce batch but got tensor without batch dimension (shape {input.shape})')
+
+    if input.dim() == 2 or reduce_batch_first:#reduce_batch_first=true
+        # print(np.unique(input.cpu().data.numpy()))#input.size=[batchsize,高，宽]
+        # print(np.unique(target.cpu().data.numpy()))#target.size=[batchsize,高，宽]
+        inter = torch.dot(input.reshape(-1), target.reshape(-1))#点乘，reshape(-1)指不分行列，导出成一串
+        sets_sum = torch.sum(input) + torch.sum(target)
+        if sets_sum.item() == 0:
+            sets_sum = 2 * inter
+
+        return (2 * inter + epsilon) / (sets_sum + epsilon)#
+    else:
+        # compute and average metric for each batch element
+        dice = 0
+        for i in range(input.shape[0]):
+            dice += dice_coeff(input[i, ...], target[i, ...])
+        return dice / input.shape[0]
+
+
+#计算dice coefficient的地方，1-dice coefficient是dice_loss
+def multiclass_dice_coeff(input: Tensor, target: Tensor, reduce_batch_first: bool = False, epsilon=1e-6):
+    # Average of Dice coefficient for all classes
+    assert input.size() == target.size()
+    dice = 0
+    for channel in range(input.shape[1]):
+        dice += dice_coeff(input[:, channel, ...], target[:, channel, ...], reduce_batch_first, epsilon)
+
+    return dice / input.shape[1]
 
 
 
 if __name__=='__main__':
-    data = pd.read_csv(r'E:\jiangshan\U-net\Pytorch-UNet\data\train_TransUnetTransfer_NTPublicAndKq6_256_L2=1e-6\WJS_paches_evaluate\test.csv')  # 读取评价参数
+    data = pd.read_csv(r'E:\jiangshan\U-net\Pytorch-UNet\data\TransUnet_kq6_L2=1e-6\WJS_Cracks_e20\test.csv')  # 读取评价参数
     # print(data.shape)#[行数，列数]
     # data.values可以查看DataFrame里的数据值，返回的是一个数组。
     #读取到的数据返回一个DataFrame,类似excel，是一种二维表
@@ -42,6 +76,11 @@ if __name__=='__main__':
     print('AP:', AP)
 
     #Iou曲线：
+    #IoU = TP / (TP + FN + FP)
+
+
+    #Dice 值，
+
 
     #ROC曲线
     # roc_xdata= data.iloc[:,5]#FPR

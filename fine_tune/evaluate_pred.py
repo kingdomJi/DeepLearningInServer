@@ -1,5 +1,6 @@
 """
-该文件仅针对TransUnet模型预测，包含读取单个/多个图片并预测。以及求F1/PR/IOU参数等功能，评价函数所需参数将通过cvs文件存储
+该文件仅针对TransUnet模型预测，输入待求目录，不接受单张图片地址传入
+求F1/PR/IOU参数等功能，评价函数所需参数将通过cvs文件存储
 """
 import argparse
 import logging
@@ -24,6 +25,7 @@ from utils.CropAndConnect import CropAndConnect
 from utils.data_loading import BasicDataset
 from unet import UNet
 from utils.utils import plot_img_and_mask
+from utils.dice_score import multiclass_dice_coeff, dice_coeff
 from sklearn.metrics import precision_recall_curve
 import matplotlib.pyplot as plt
 from MyResnet import ResNet_baseLine,ResnetWithASPP_model,ResNetWithASPP_FPN,ResUNet
@@ -69,10 +71,11 @@ def predict_img(net,
         #classes维度下，只有一个为1，其他全为0，对应多分类中每个像素只对应一个类别
 def get_args():
     parser = argparse.ArgumentParser(description='Predict masks from input images')
-    parser.add_argument('--model', '-m', default=r'checkpoints/TransUnet/UGATIT_WholePTokq6_optim=RMSprop_L2=1e-6/checkpoint_epoch25.pth', metavar='FILE',
+    parser.add_argument('--model', '-m', default='./checkpoints/TransUnet/kq6_optim=RMSprop_L2=1e-6/checkpoint_epoch100.pth', metavar='FILE',
     #parser.add_argument('--model', '-m',default='./checkpoints_UNet_Chen_Unenhance_e40/checkpoint_epoch40.pth',metavar='FILE',
                         help='Specify the file in which the model is stored')
     parser.add_argument('--input', '-i', metavar='INPUT', nargs='+', help='Filenames of input images', required=True)
+    parser.add_argument('--true_mask', '-tm', metavar='INPUT', nargs='+', help='Filenames of true masks', required=True)
     parser.add_argument('--output', '-o', metavar='OUTPUT', nargs='+', help='Filenames of output images')
     parser.add_argument('--viz', '-v', action='store_true',
                         help='Visualize the images as they are processed')
@@ -154,7 +157,7 @@ class TestDataset(data.Dataset):#输入待预测图像和真实label的目录，
         self.image_root = image_dataroot
         self.label_root = label_dataroot
         self.image_list = glob.glob(os.path.join(self.image_root, "*.{}".format("png")))
-        self.label_list = glob.glob(os.path.join(self.label_root, "*.{}".format("bmp")))
+        self.label_list = glob.glob(os.path.join(self.label_root, "*.{}".format("png")))#有时改成bmp
         assert len(self.image_list) == len(self.label_list)
 
         self.image_name = [image.split("\\")[-1].split(".")[0] for image in self.image_list]
@@ -266,31 +269,27 @@ def crop_448(img,net):
     new_mask = CropAndConnect.Connect(masks=masks, classes=classes)
     return new_mask
 
+
 if __name__ == '__main__':
     args = get_args()
-    PR = args.pr
-    if len(os.path.splitext(args.input[0]))<2 or os.path.splitext(args.input[0])[1]!='.png':#输入为目录
-        in_files=[]
-        infile_names=os.listdir(args.input[0])
-        for i in infile_names:
-            in_files.append(args.input[0]+'/'+i)
 
-        out_files = get_output_filenames_dir(infile_names)  # Jiang,当输入是文件夹时，调用该行
-    else:
-        in_files = args.input#原版，返回一个字符串列表，列表元素个数取决于是输入的元素个数，原作者大概想当输入为多个图片时，
-            # 命令行输入的input参数为一个图片路径列表。比如用.txt保存所有输入图片的绝对路径，再用命令行调用该txt作为输入路径参数
-        out_files = get_output_filenames(args)  # 原版，这里返回列表或单个值，取决于输入情况
+    image_dtaroot = args.input[0]
+    label_dataroot = args.true_mask[0]
+    test_dataset = TestDataset(image_dtaroot, label_dataroot)  # 测试数据集
 
-    crop_1024=args.crop1024
-    crop_448 = args.crop448
+    out_files = get_output_filenames(args)  # 原版，这里返回列表或单个值，取决于输入情况
+    # out_files=get_output_filenames_J(in_files)#Jiang,当输入是文件夹时，调用该行
     # print(out_files)
     config_vit = CONFIGS_ViT_seg[args.vit_name]
     config_vit.n_classes = 2  # 默认为2
     config_vit.n_skip = args.n_skip
     if args.vit_name.find('R50') != -1:
         config_vit.patches.grid = (
-        int(args.img_size / args.vit_patches_size), int(args.img_size / args.vit_patches_size))
+            int(args.img_size / args.vit_patches_size), int(args.img_size / args.vit_patches_size))
     net = ViT_seg(config_vit, img_size=args.img_size, num_classes=config_vit.n_classes).cuda()
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # device = torch.device('cpu')  # 调试错误时调用以查找错误来源
@@ -301,116 +300,72 @@ if __name__ == '__main__':
     net.load_state_dict(torch.load(args.model, map_location=device))
     logging.info('Model loaded!')
 
-    for i, filename in enumerate(in_files):#用enumerate会返回一个元组，前面是序号（对应后面的out_filename），后面是list下的文件名
-        logging.info(f'\nPredicting image {filename} ...')
-        img = Image.open(filename).convert('RGB')#原,打开待预测图像,保持以RGB模式打开，防止四通道图片传入
-        img = np.asarray(img)#这里是后面加的，把CropAndConnect.Crop里的开头转np拿到这里了
-        # print(img.size)#(高，宽)
-        if img.shape[0]*img.shape[1]>1000000 and crop_1024==False and crop_448==False: #当输入很大一幅图时调用这个地方，切割预测
-            #######################这里执行Crop处理img
-            imgs = CropAndConnect.Crop(img)  # 返回一个切割完的五维图片集数组
-            print(imgs.shape)#()
-            imgs_h = imgs.shape[0]
-            imgs_w = imgs.shape[1]
-            imgs_hsize = imgs.shape[2]
-            imgs_wsize = imgs.shape[3]
-            #######################这里可以用循环把mask存在一个列表里
-            # 传入Connect函数的masks.size=(块行数,块列数,classes,高，宽)
-            classes = net.num_classes#这个地方要跟网络的classes保持一致
-            masks = np.zeros((imgs_h, imgs_w, classes, imgs_hsize, imgs_wsize))  # masks是五维数组
-            for n in range(imgs.shape[0]):
-                for m in range(imgs.shape[1]):
-                    mask,probability_mask = predict_img(net=net,
-                                       full_img=Image.fromarray(imgs[n][m]),  # 这里还原成img的输入格式
-                                       scale_factor=args.scale,
-                                       out_threshold=args.mask_threshold,
-                                       device=device)
-                    # print(mask.shape)#（2，256，256）
-                    # print(np.unique(mask))#0或1
-                    masks[n][m] = mask
-            #print('masks.shape'+masks.shape)
-            ###################这里执行将mask拼接起来的Connect
-            new_mask = CropAndConnect.Connect(masks=masks, classes=classes)
-        elif(crop_1024==True):
-            imgs = CropAndConnect.Crop_1024(img)  # 返回一个切割完的五维图片集数组
-            # print(imgs.shape)#(,,1024,1024,3)
-            imgs_h = imgs.shape[0]
-            imgs_w = imgs.shape[1]
-            imgs_hsize = imgs.shape[2]
-            imgs_wsize = imgs.shape[3]
-            #######################这里可以用循环把mask存在一个列表里
-            # 传入Connect函数的masks.size=(块行数,块列数,classes,高，宽)
-            classes = net.num_classes  # 这个地方要跟网络的classes保持一致
-            masks = np.zeros((imgs_h, imgs_w, classes, imgs_hsize, imgs_wsize))  # masks是五维数组
-            for n in range(imgs.shape[0]):
-                for m in range(imgs.shape[1]):
-                    mask, probability_mask = predict_img(net=net,
-                                                         full_img=Image.fromarray(imgs[n][m]),  # 这里还原成img的输入格式
-                                                         scale_factor=args.scale,
-                                                         out_threshold=args.mask_threshold,
-                                                         device=device)
-                    # print(mask.shape)#（2，256，256）
-                    # print(np.unique(mask))#0或1
-                    masks[n][m] = mask
+    # for i, filename in enumerate(in_files):#用enumerate会返回一个元组，前面是序号（对应后面的out_filename），后面是list下的文件名
+    final_accuracy_all = []  # 存储最终指标结果的列表
+    thresh_step = 0.01
+    eps = 1e-6  # 防止除零的偏置值
+    for thresh in np.arange(0.0, 1.0, thresh_step):
+        statistics = []  # 存储当前阈值及其对应的结果，最终指标结果的子集
+        for i, list in enumerate(test_dataset):  # 循环读取原图和真实label（0，1）,遍历一次测试集
+            img = list[0]  # 待预测图的np格式
+            true_label = list[1]  # 真label的【0，1】格式
+            img_name = list[2]  # 不带后缀的img名
 
-            # print('masks.shape'+masks.shape)
-            ###################这里执行将mask拼接起来的Connect
-            new_mask = CropAndConnect.Connect_1024(masks=masks, classes=classes)
-        elif (crop_448 == True):
-            imgs = CropAndConnect.Crop_448(img)  # 返回一个切割完的五维图片集数组
-            # print(imgs.shape)#(,,448,448,3)
-            imgs_h = imgs.shape[0]
-            imgs_w = imgs.shape[1]
-            imgs_hsize = imgs.shape[2]
-            imgs_wsize = imgs.shape[3]
-            #######################这里可以用循环把mask存在一个列表里
-            # 传入Connect函数的masks.size=(块行数,块列数,classes,高，宽)
-            classes = net.num_classes  # 这个地方要跟网络的classes保持一致
-            masks = np.zeros((imgs_h, imgs_w, classes, imgs_hsize, imgs_wsize))  # masks是五维数组
-            for n in range(imgs.shape[0]):
-                for m in range(imgs.shape[1]):
-                    mask, probability_mask = predict_img(net=net,
-                                                         full_img=Image.fromarray(imgs[n][m]),  # 这里还原成img的输入格式
-                                                         scale_factor=args.scale,
-                                                         out_threshold=args.mask_threshold,
-                                                         device=device)
-                    # print(mask.shape)#（2，256，256）
-                    # print(np.unique(mask))#0或1
-                    masks[n][m] = mask
+            # print(img.size)#(高，宽)
 
-            # print('masks.shape'+masks.shape)
-            ###################这里执行将mask拼接起来的Connect
-            new_mask = CropAndConnect.Connect_448(masks=masks, classes=classes)
-        else:#当输入的单张图片并不大时调用原版
-            new_mask, probability_mask= predict_img(net=net,
-                               full_img=Image.fromarray(img),  # 这里还原成img的输入格式
-                               scale_factor=args.scale,
-                               out_threshold=args.mask_threshold,
-                               device=device)
+            new_mask, probability_mask = predict_img(net=net,
+                                                     full_img=Image.fromarray(img),  # 这里还原成img的输入格式
+                                                     scale_factor=args.scale,
+                                                     out_threshold=args.mask_threshold,
+                                                     device=device)
 
-        #########################JiangShan############
-        if not args.no_save:
-            out_filename = out_files[i]
-            # print(new_mask.shape)#(2, 4736, 7296)
-            #print(np.unique(new_mask))#new_mask值为0或1
-            result = mask_to_image(new_mask)#result为图片格式
-            # print(np.unique(np.asarray(result)))#0或255
-            ##############Jiang
-            result.save(out_filename)#原
+            statistics.append(
+                Metrics(probability_mask, true_label, thresh).get_statistics())  # 写入单张图某阈值下计算的[tp,fp,fn,tn]
+            #########################JiangShan############
+            if (not args.no_save) & (thresh == 0.5):  # 当阈值=0.5时保存结果，等于总共保存一次
+                out_filename = args.output[0] + '/' + img_name + '.png'
+                print(out_filename)
+                # print(new_mask.shape)#(2, 4736, 7296)
+                # print(np.unique(new_mask))#new_mask值为0或1
+                result = mask_to_image(new_mask)  # result为图片格式
+                # print(np.unique(np.asarray(result)))#0或255
+                ##############Jiang
+                result.save(out_filename)  # 原
+                #####################
+                logging.info(f'Mask saved to {out_filename}')
+            if args.viz:
+                plot_img_and_mask(img, new_mask)
 
-            #####################
-            logging.info(f'Mask saved to {out_filename}')
+        tp = np.sum([v[0] for v in statistics])
+        fp = np.sum([v[1] for v in statistics])
+        fn = np.sum([v[2] for v in statistics])
+        tn = np.sum([v[3] for v in statistics])
+        # 计算ROC所需参数真阳率和假阳率
+        FPR = fp / (tn + fp)
+        TPR = tp / (fn + tp)
+        # calculate precision
+        precision = 1.0 if tp == 0 and fp == 0 else tp / (tp + fp + eps)
+        # calculate recall
+        recall = tp / (tp + fn + eps)
+        # calculate f-score（F1值）
+        f = 2 * precision * recall / (precision + recall + eps)
 
-        if args.viz:
-            logging.info(f'Visualizing results for image {filename}, close to continue...')
-            plot_img_and_mask(img, new_mask)
+        # calculate iou
+        iou = tp / (tp + fp + fn + eps)
+        #calculate dice,dice coefficient=(2TP)/(2TP+FP+FN)
+        dice=2*tp/(2*tp+fp+fn)
+
+        final_accuracy_all.append([thresh, precision, recall, f, iou, dice,FPR, TPR])
+        print("precision: {}, recall: {}, f 得分： {}, IoU: {}".format(precision, recall, f, iou))
+    # 将各种评价指标输出成文件
+    csv_name = "test.csv"  # 保存PR曲线的数据
+    csv_path = args.output[0] + '/' + csv_name  # 保存数据的真实路径,args.output应该是一个目录，装预测masks的目录
+    save_evaluate(csv_path, final_accuracy_all)  # 保存格式【阈值，precision, recall,f,Iou】
+
+# 使用范例：python TransUnet/evaluate_pred.py -i ./data/WJS_cracks/images_256 -o ./data/train_TransUnetTransfer_NTPublicAndKq6_256_L2=1e-6/WJS_paches_evaluate -tm ./data/WJS_cracks/masks
 
 
-"""
-使用范例
-输入多个图片时，将它们放在同一目录下，如使用命令：
-python TransUnet/predict.py -i ./data/WJS_cracks/images_256 -o ./data/train_TransUnetTransfer_NTPublicAndKq6_256_L2=1e-6/WJS_paches
-输入单张图片时：python TransUnet/predict.py -i ./data/WJS.png -o ./data/trainbyChen_TransUnet_Public_L2=1e-6/WJS_e65.png
 
-"""
+
+
 

@@ -1,4 +1,4 @@
-#该项目用到VGG19网络的预训练模型
+"""该项目用到VGG19网络的预训练模型"""
 from __future__ import print_function
 from  torchvision import utils as vutils
 
@@ -231,14 +231,14 @@ if __name__=='__main__':
     cnn_normalization_mean = torch.tensor([0.485, 0.456, 0.406]).to(device)
     cnn_normalization_std = torch.tensor([0.229, 0.224, 0.225]).to(device)
 
-    style_imgPath=r"..\data\data_Chen_new\patches\kq6_dom"
+    style_imgPath=r"..\data\WJS_cracks\images_256"
     style_list=os.listdir(style_imgPath)
     # style_img=image_loader(r'C:\Users\jiangshan\Desktop\XYY448.jpg')
     input_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_img'
-    save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_result'
+    save_path=r'..\data\data_Chen_new\augmentation_Jiang\patches\Transfer_resultToWJS_StyleVGG'
     input_list=os.listdir(input_path)
     for i in range(len(input_list)):#input的列表
-        j=i%25#j取前25个kq6的图像进行风格迁移
+        j=i%200#j取前任意（自设）个kq6的图像进行风格迁移
         style_img = image_loader(style_imgPath+'\\'+style_list[j])
         content_img = image_loader(input_path+'\\'+input_list[i])
         assert style_img.size() == content_img.size(), \

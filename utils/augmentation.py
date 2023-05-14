@@ -53,7 +53,6 @@ class Aug():
                 #     , p=1),
                 #输入BGR
                 #40,83,77(林地绿)\22,102,76（某绿）#128,178,194(砂色)
-
                 #像素值变换
                 # A.HueSaturationValue(p=1),#随机改变图片的 HUE(色相)、饱和度和值
                 # # A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=.2, brightness_by_max=True,
@@ -65,19 +64,6 @@ class Aug():
                 #清晰度变换，模糊处理
                 # A.GaussianBlur(blur_limit=7, p=1),#高斯模糊
                 A.Blur(blur_limit=7, p=1)#box模糊：
-
-                # A.OneOf([#模糊处理，随机
-                #     A.MotionBlur(p=0.2),
-                #     A.MedianBlur(blur_limit=3, p=0.1),
-                #     A.Blur(blur_limit=3, p=0.1),
-                # ], p=1),
-                # A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.2),
-                # A.OneOf([
-                #     A.OpticalDistortion(p=0.3),
-                #     A.GridDistortion(p=0.1),
-                #     A.IAAPiecewiseAffine(p=0.3),
-                # ], p=0.5),
-                # A.HueSaturationValue(p=0.3),
             ])
         return trans
 
@@ -152,19 +138,6 @@ def augmentation():#针对单张图片的增强方法
             #清晰度变换，模糊处理
             # A.GaussianBlur(blur_limit=7, p=1),#高斯模糊
             # A.Blur(blur_limit=7, p=1)#box模糊：
-
-            # A.OneOf([#模糊处理，随机
-            #     A.MotionBlur(p=0.2),
-            #     A.MedianBlur(blur_limit=3, p=0.1),
-            #     A.Blur(blur_limit=3, p=0.1),
-            # ], p=1),
-            # A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.2),
-            # A.OneOf([
-            #     A.OpticalDistortion(p=0.3),
-            #     A.GridDistortion(p=0.1),
-            #     A.IAAPiecewiseAffine(p=0.3),
-            # ], p=0.5),
-            # A.HueSaturationValue(p=0.3),
         ])
     return trans
 
@@ -236,8 +209,6 @@ def aug_segAndLine():
 # transformed_mask_seg = cv2.cvtColor(transformed_SegMask, cv2.COLOR_BGR2GRAY)#24位转8位灰度图
 # transformed_mask_line=cv2.cvtColor(transformed_LineMask, cv2.COLOR_BGR2GRAY)#24位转8位灰度图
 
-
-
 def resize(path_img,path_save,mask=False,size=(256,256)):
     img_namelist=os.listdir(path_img)
     if mask==False:
@@ -255,6 +226,9 @@ def resize(path_img,path_save,mask=False,size=(256,256)):
             img_savePath=path_save+'/'+each#不改后缀
             img_resize.save(img_savePath)
 
+"""
+将源文件相同名称的图片复制到指定文件夹？
+"""
 def Copy_source(open_path_souce, open_path_label_seg, save_path_source, save_path_label_seg):
     img_list = os.listdir(open_path_souce)
     mask_seg_list = os.listdir(open_path_label_seg)  #
@@ -281,9 +255,9 @@ if __name__=='__main__':
     # trans=augmentation()
     # print(aug_test(image_path,save_path,trans))
     ########################resize一个目录
-    path_img = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\publicAndkq6\kq6'
-    path_save = r'E:\jiangshan\U-net\Pytorch-UNet\data\data_Chen_new\augmentation_Jiang\patches\publicAndkq6\kq6_448'
-    resize(path_img, path_save, mask=False, size=(448, 448))
+    path_img = r'E:\jiangshan\crack_segmentation_dataset\masks'
+    path_save = r'E:\jiangshan\crack_segmentation_dataset\masks_256'
+    resize(path_img, path_save, mask=True, size=(256, 256))
     #########单张resize
     # path_img = r'..\data\WJS.png'
     # path_save = r'..\data\WJS_DoubleResolution.png'
